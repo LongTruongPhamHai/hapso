@@ -44,19 +44,44 @@ class GridMap:
 
         return self.grid[y][x] == self.OBSTACLE
 
-    def to_dict(self) -> dict:
-        return {
-            "width": self.width,
-            "height": self.height,
-            "grid": self.grid,
-            "start": self.start,
-            "goal": self.goal,
-        }
+    def set_start(self, x: int, y: int) -> bool:
+        if not self.is_inside(x, y) or self.is_obstacle(x, y):
+            return False
 
-    # def clear_map
-    # def from_dict
-    # def get_neighbors
-    # def set_goal
-    # def set_obstacle
-    # def set_start
-    # def toggle_obstacle
+        if self.start is not None:
+            old_x, old_y = self.start
+            if self.grid[old_y][old_x] == self.START:
+                self.grid[old_y][old_x] = self.FREE
+
+        self.start = (x, y)
+        self.grid[y][x] = self.START
+        return True
+
+    def set_goal(self, x: int, y: int) -> bool:
+        if not self.is_inside(x, y) or self.is_obstacle(x, y):
+            return False
+
+        if self.goal is not None:
+            old_x, old_y = self.goal
+            if self.grid[old_y][old_x] == self.GOAL:
+                self.grid[old_y][old_x] = self.FREE
+
+        self.goal = (x, y)
+        self.grid[y][x] = self.GOAL
+        return True
+
+    def set_obstacle(self, x: int, y: int, value: bool | None = None) -> bool:
+        if not self.is_inside(x, y):
+            return False
+
+        if (x, y) == self.start or (x, y) == self.goal:
+            return False
+
+        if value is None:
+            self.grid[y][x] = (
+                self.FREE if self.grid[y][x] == self.OBSTACLE else self.OBSTACLE
+            )
+        else:
+            self.grid[y][x] = self.OBSTACLE if value else self.FREE
+
+        return True

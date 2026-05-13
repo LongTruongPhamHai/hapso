@@ -1,3 +1,5 @@
+from .parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
+
 GRID_CELL_SIZE = 20
 TEXT_FONT = "Consolas"
 
@@ -10,20 +12,38 @@ WINDOW_WIDTH = 1200
 
 NAV_HEIGHT = WINDOW_HEIGHT
 NAV_WIDTH = 250
+NAV_OFFSET_X = 10
+NAV_OFFSET_Y = 20
 NAV_MENU = [
+    "[0] Free",
     "[1] Set obstacle",
     "[2] Erase obstacle",
     "[C] Clear map",
     "[S] Set start",
     "[G] Set goal",
-    "[A] Select algorithm",
-    "[Space] Run",
-    "[D] Toggle debug",
-    "[B] Batch test",
-    "[<] Speed -",
-    "[>] Speed +",
     "[I] Import JSON",
     "[E] Export JSON",
-    "[0] Setting",
+    "",
+    "[A] Select algorithm",
+    "[Space] Run",
+    "[B] Batch test",
+    "[D] Toggle debug",
+    "[<] Speed -",
+    "[>] Speed +",
+    "",
+    "[P] Setting",
     "[ESC] Quit",
 ]
+
+MODE_HEIGHT = 50
+MODE_WIDTH = WINDOW_WIDTH - NAV_WIDTH
+MODE_OFFSET_X = NAV_WIDTH + 20
+MODE_OFFSET_Y = 20
+
+GRID_SIDE_HEIGHT = WINDOW_HEIGHT - MODE_HEIGHT
+GRID_SIDE_WIDTH = WINDOW_WIDTH - NAV_WIDTH
+
+GRID_OFFSET_X = (GRID_SIDE_WIDTH - (GRID_CELL_SIZE * GRID_MAP_WIDTH)) // 2 + NAV_WIDTH
+GRID_OFFSET_Y = (
+    GRID_SIDE_HEIGHT - (GRID_CELL_SIZE * GRID_MAP_HEIGHT)
+) // 2 + MODE_HEIGHT
