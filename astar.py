@@ -1,6 +1,12 @@
+from config.parameter import (
+    MIN_CLEARANCE,
+    ASTAR_REMOVE_REDUNDANT,
+    ASTAR_REMOVE_TRANSITION,
+)
+from grid_map import GridMap
 from math import sqrt
 from typing import Optional
-from grid_map import GridMap
+from utils import min_dis_to_obs
 
 import heapq
 
@@ -9,17 +15,17 @@ class Astar:
     def __init__(
         self,
         grid_map: GridMap,
-        remove_redundant: bool = False,
-        remove_transition: bool = False,
-        min_clearance: float = 0.0,
+        min_clearance: float = MIN_CLEARANCE,
+        remove_redundant: bool = ASTAR_REMOVE_REDUNDANT,
+        remove_transition: bool = ASTAR_REMOVE_TRANSITION,
     ) -> None:
         self.grid_map = grid_map
         self.start = self.grid_map.start
         self.goal = self.grid_map.goal
 
+        self.min_clearance = float(min_clearance)
         self.remove_redundant = remove_redundant
         self.remove_transition = remove_transition
-        self.min_clearance = float(min_clearance)
 
         self.g_score: dict[tuple[int, int], float] = {}
         self.f_score: dict[tuple[int, int], float] = {}
@@ -63,14 +69,18 @@ class Astar:
 
             if current == goal:
                 path = self._reconstruct_path(current)
-                # improve path
+                return self._improve_astar_path(path)
 
             for neighbor in self._get_neighbors(current):
                 if neighbor in self.visited:
                     continue
 
                 if self.min_clearance > 0.0:
-                    if min
+                    if (
+                        min_dis_to_obs(current, neighbor, self.grid_map)
+                        <= self.min_clearance
+                    ):
+                        continue
 
                 cost = self._movement_cost(current, neighbor)
 
@@ -107,10 +117,7 @@ class Astar:
     def _improve_astar_path(self, path: list[tuple[int, int]]) -> list[tuple[int, int]]:
         optimized_path = path
 
-        if self.remove_redundant:
-            if len(optimized_path) <= 2:
-                return optimized_path
-
+        if self.remove_redundant and len(optimized_path) > 2:
             rr_path = [optimized_path[0]]
             i = 1
             while i < len(optimized_path) - 1:
@@ -133,9 +140,30 @@ class Astar:
                 i += 1
 
             rr_path.append(optimized_path[-1])
+            optimized_path = rr_path
 
-        if self.remove_transition:
-            obstacle_centers = self.grid_map.get_obstacles_as_centers()
+        if self.remove_transition and len(optimized_path) > 2:
+            rt_path = [optimized_path[0]]
+            i = 1
+            while i < len(optimized_path) - 1:
+                prev_point = rt_path[-1]
+                curr_point = optimized_path[i]
+                next_point = optimized_path[i + 1]
+
+                safe = (
+                    min_dis_to_obs(prev_point, next_point, self.grid_map)
+                    > self.min_clearance
+                )
+
+                if not safe:
+                    rt_path.append(curr_point)
+
+                i += 1
+
+            rt_path.append(optimized_path[-1])
+            optimized_path = rt_path
+
+        return optimized_path
 
     def _get_neighbors(self, pos: tuple[int, int]) -> list[tuple[int, int]]:
         neighbors = []

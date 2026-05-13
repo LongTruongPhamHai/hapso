@@ -1,3 +1,5 @@
+from config.parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
+
 import numpy as np
 
 
@@ -7,7 +9,9 @@ class GridMap:
     START = 2
     GOAL = 3
 
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(
+        self, width: int = GRID_MAP_WIDTH, height: int = GRID_MAP_HEIGHT
+    ) -> None:
         self.width = width
         self.height = height
 
