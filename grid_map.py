@@ -85,3 +85,10 @@ class GridMap:
             self.grid[y][x] = self.OBSTACLE if value else self.FREE
 
         return True
+
+    def resize(self, width: int, height: int) -> None:
+        self.width = width
+        self.height = height
+        self.grid = [[self.FREE for _ in range(width)] for _ in range(height)]
+        self.start = None
+        self.goal = None
