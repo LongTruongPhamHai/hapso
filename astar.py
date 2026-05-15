@@ -6,7 +6,7 @@ from config.parameter import (
 from grid_map import GridMap
 from math import sqrt
 from typing import Optional
-from utils import min_dis_to_obs
+from utils import min_distance_to_obstacle
 
 import heapq
 
@@ -18,6 +18,7 @@ class Astar:
         min_clearance: float = MIN_CLEARANCE,
         remove_redundant: bool = ASTAR_REMOVE_REDUNDANT,
         remove_transition: bool = ASTAR_REMOVE_TRANSITION,
+        animate: bool = False,
     ) -> None:
         self.grid_map = grid_map
         self.start = self.grid_map.start
@@ -32,44 +33,65 @@ class Astar:
 
         self.came_from: dict[tuple[int, int], tuple[int, int]] = {}
         self.visited: set[tuple[int, int]] = set()
+        self.visited_order: list[tuple[int, int]] = []
 
-        # openset = [(f_score, h_score, g_score, pos)]
         self.open_set: list[tuple[float, float, float, tuple[int, int]]] = []
+
+        self.animate = animate
+        self.visual_trace: list[tuple] = []
 
     def plan(self) -> Optional[list[tuple[int, int]]]:
         start = self.start
         goal = self.goal
+        self.visual_trace = []
 
         if not self.grid_map.is_inside(start[0], start[1]) or self.grid_map.is_obstacle(
             start[0], start[1]
         ):
             return None
+
         if not self.grid_map.is_inside(goal[0], goal[1]) or self.grid_map.is_obstacle(
             goal[0], goal[1]
         ):
             return None
 
         if start == goal:
+            self.visited_order = [start]
+
+            if self.animate:
+                self.visual_trace.append(("visit", start))
+                self.visual_trace.append(("path", [start, goal]))
+
             return [start, goal]
 
         self.came_from = {}
         self.g_score = {start: 0}
-        start_h = self._movement_cost(start, goal)
-        self.f_score = {start: start_h}
+        start_heuristic = self._movement_cost(start, goal)
+        self.f_score = {start: start_heuristic}
         self.visited = set()
-        self.open_set = [(start_h, start_h, 0, start)]
+        self.visited_order = []
+        self.open_set = [(start_heuristic, start_heuristic, 0, start)]
 
         while self.open_set:
-            _, _, current_g, current = heapq.heappop(self.open_set)
+            _, _, current_cost, current = heapq.heappop(self.open_set)
 
             if current in self.visited:
                 continue
 
             self.visited.add(current)
+            self.visited_order.append(current)
+
+            if self.animate:
+                self.visual_trace.append(("visit", current))
 
             if current == goal:
                 path = self._reconstruct_path(current)
-                return self._improve_astar_path(path)
+                improved_path = self._improve_astar_path(path)
+
+                if self.animate:
+                    self.visual_trace.append(("path", improved_path))
+
+                return improved_path
 
             for neighbor in self._get_neighbors(current):
                 if neighbor in self.visited:
@@ -77,32 +99,42 @@ class Astar:
 
                 if self.min_clearance > 0.0:
                     if (
-                        min_dis_to_obs(current, neighbor, self.grid_map)
+                        min_distance_to_obstacle(current, neighbor, self.grid_map)
                         <= self.min_clearance
                     ):
                         continue
 
                 cost = self._movement_cost(current, neighbor)
+                tentative_g_score = current_cost + cost
 
-                new_g_score = current_g + cost
-
-                if neighbor not in self.g_score or new_g_score < self.g_score[neighbor]:
+                if (
+                    neighbor not in self.g_score
+                    or tentative_g_score < self.g_score[neighbor]
+                ):
                     self.came_from[neighbor] = current
-                    self.g_score[neighbor] = new_g_score
-                    neighbor_h = self._movement_cost(neighbor, goal)
-                    self.f_score[neighbor] = new_g_score + neighbor_h
+                    self.g_score[neighbor] = tentative_g_score
+
+                    neighbor_heuristic = self._movement_cost(neighbor, goal)
+                    self.f_score[neighbor] = tentative_g_score + neighbor_heuristic
 
                     heapq.heappush(
                         self.open_set,
-                        (self.f_score[neighbor], neighbor_h, new_g_score, neighbor),
+                        (
+                            self.f_score[neighbor],
+                            neighbor_heuristic,
+                            tentative_g_score,
+                            neighbor,
+                        ),
                     )
 
         return None
 
+    @staticmethod
     def _movement_cost(start: tuple[int, int], end: tuple[int, int]) -> float:
-        dx = end[0] - start[0]
-        dy = end[1] - start[1]
-        return sqrt(dx * dx + dy * dy)
+        delta_x = end[0] - start[0]
+        delta_y = end[1] - start[1]
+
+        return sqrt(delta_x * delta_x + delta_y * delta_y)
 
     def _reconstruct_path(self, current: tuple[int, int]) -> list[tuple[int, int]]:
         path = [current]
@@ -115,15 +147,16 @@ class Astar:
         return path
 
     def _improve_astar_path(self, path: list[tuple[int, int]]) -> list[tuple[int, int]]:
-        optimized_path = path
+        current_path = path
 
-        if self.remove_redundant and len(optimized_path) > 2:
-            rr_path = [optimized_path[0]]
-            i = 1
-            while i < len(optimized_path) - 1:
-                prev_x, prev_y = rr_path[-1]
-                curr_x, curr_y = optimized_path[i]
-                next_x, next_y = optimized_path[i + 1]
+        if self.remove_redundant and len(current_path) > 2:
+            filtered_path = [current_path[0]]
+            index = 1
+
+            while index < len(current_path) - 1:
+                prev_x, prev_y = filtered_path[-1]
+                curr_x, curr_y = current_path[index]
+                next_x, next_y = current_path[index + 1]
 
                 v1_x = curr_x - prev_x
                 v1_y = curr_y - prev_y
@@ -135,38 +168,40 @@ class Astar:
                 is_collinear = abs(cross_product) < 1e-99
 
                 if not is_collinear:
-                    rr_path.append((curr_x, curr_y))
+                    filtered_path.append((curr_x, curr_y))
 
-                i += 1
+                index += 1
 
-            rr_path.append(optimized_path[-1])
-            optimized_path = rr_path
+            filtered_path.append(current_path[-1])
+            current_path = filtered_path
 
-        if self.remove_transition and len(optimized_path) > 2:
-            rt_path = [optimized_path[0]]
-            i = 1
-            while i < len(optimized_path) - 1:
-                prev_point = rt_path[-1]
-                curr_point = optimized_path[i]
-                next_point = optimized_path[i + 1]
+        if self.remove_transition and len(current_path) > 2:
+            transition_filtered_path = [current_path[0]]
+            index = 1
+
+            while index < len(current_path) - 1:
+                prev_point = transition_filtered_path[-1]
+                curr_point = current_path[index]
+                next_point = current_path[index + 1]
 
                 safe = (
-                    min_dis_to_obs(prev_point, next_point, self.grid_map)
+                    min_distance_to_obstacle(prev_point, next_point, self.grid_map)
                     > self.min_clearance
                 )
 
                 if not safe:
-                    rt_path.append(curr_point)
+                    transition_filtered_path.append(curr_point)
 
-                i += 1
+                index += 1
 
-            rt_path.append(optimized_path[-1])
-            optimized_path = rt_path
+            transition_filtered_path.append(current_path[-1])
+            current_path = transition_filtered_path
 
-        return optimized_path
+        return current_path
 
     def _get_neighbors(self, pos: tuple[int, int]) -> list[tuple[int, int]]:
         neighbors = []
+
         directions = [
             (0, -1),
             (0, 1),
@@ -177,10 +212,11 @@ class Astar:
             (1, -1),
             (1, 1),
         ]
-        x, y = pos[0], pos[1]
 
-        for dx, dy in directions:
-            neighbor_x, neighbor_y = x + dx, y + dy
+        position_x, position_y = pos[0], pos[1]
+
+        for offset_x, offset_y in directions:
+            neighbor_x, neighbor_y = position_x + offset_x, position_y + offset_y
 
             if self.grid_map.is_inside(
                 neighbor_x, neighbor_y

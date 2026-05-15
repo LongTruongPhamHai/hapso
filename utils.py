@@ -2,57 +2,62 @@ from grid_map import GridMap
 from math import sqrt
 
 
-def dis_line_to_obs(
-    start: tuple[int, int], end: tuple[int, int], obs: tuple[float, float]
+def distance_line_to_obstacle(
+    start_cell: tuple[int, int],
+    end_cell: tuple[int, int],
+    obstacle: tuple[float, float],
 ) -> float:
-    start_x, start_y = start[0] + 0.5, start[1] + 0.5
-    end_x, end_y = end[0] + 0.5, end[1] + 0.5
-    obs_x, obs_y = obs[0] + 0.5, obs[1] + 0.5
+    start_x, start_y = start_cell[0] + 0.5, start_cell[1] + 0.5
+    end_x, end_y = end_cell[0] + 0.5, end_cell[1] + 0.5
+    obstacle_x, obstacle_y = obstacle[0] + 0.5, obstacle[1] + 0.5
 
-    dx = end_x - start_x
-    dy = end_y - start_y
+    delta_x = end_x - start_x
+    delta_y = end_y - start_y
 
-    if dx == 0 and dy == 0:
-        return sqrt((obs_x - start_x) ** 2 + (obs_y - start_y) ** 2)
+    if delta_x == 0 and delta_y == 0:
+        return sqrt((obstacle_x - start_x) ** 2 + (obstacle_y - start_y) ** 2)
 
-    t = ((obs_x - start_x) * dx + (obs_y - start_y) * dy) / (dx * dx + dy * dy)
+    projection_factor = (
+        (obstacle_x - start_x) * delta_x + (obstacle_y - start_y) * delta_y
+    ) / (delta_x * delta_x + delta_y * delta_y)
 
-    t = max(0, min(1, t))
+    projection_factor = max(0, min(1, projection_factor))
 
-    nearest_x = start_x + t * dx
-    nearest_y = start_y + t * dy
+    nearest_x = start_x + projection_factor * delta_x
+    nearest_y = start_y + projection_factor * delta_y
 
-    return sqrt((obs_x - nearest_x) ** 2 + (obs_y - nearest_y) ** 2)
+    return sqrt((obstacle_x - nearest_x) ** 2 + (obstacle_y - nearest_y) ** 2)
 
 
-def min_dis_to_obs(
-    start: tuple[int, int],
-    end: tuple[int, int],
+def min_distance_to_obstacle(
+    start_cell: tuple[int, int],
+    end_cell: tuple[int, int],
     grid_map: GridMap,
-    margin: int = 3,
-):
-    all_obstacles = grid_map.get_obstacles()
+    margin_cells: int = 3,
+) -> float:
+    obstacle_cells = grid_map.get_obstacles()
 
-    start_x, start_y = start[0] + 0.5, start[1] + 0.5
-    end_x, end_y = end[0] + 0.5, end[1] + 0.5
+    start_x, start_y = start_cell[0] + 0.5, start_cell[1] + 0.5
+    end_x, end_y = end_cell[0] + 0.5, end_cell[1] + 0.5
 
-    min_obs_x = min(start_x, end_x) - margin
-    max_obs_x = max(start_x, end_x) + margin
+    min_x = min(start_x, end_x) - margin_cells
+    max_x = max(start_x, end_x) + margin_cells
 
-    min_obs_y = min(start_y, end_y) - margin
-    max_obs_y = max(start_y, end_y) + margin
+    min_y = min(start_y, end_y) - margin_cells
+    max_y = max(start_y, end_y) + margin_cells
 
-    obstacles = [
-        (x, y)
-        for x, y in all_obstacles
-        if min_obs_x <= x <= max_obs_x and min_obs_y <= y <= max_obs_y
+    nearby_obstacles = [
+        (obstacle_x, obstacle_y)
+        for obstacle_x, obstacle_y in obstacle_cells
+        if min_x <= obstacle_x <= max_x and min_y <= obstacle_y <= max_y
     ]
 
-    min_distance = grid_map.height * grid_map.width
-    for obs in obstacles:
-        distance = dis_line_to_obs(start, end, obs)
+    closest_distance = grid_map.height * grid_map.width
 
-        if distance < min_distance:
-            min_distance = distance
+    for obstacle_cell in nearby_obstacles:
+        distance = distance_line_to_obstacle(start_cell, end_cell, obstacle_cell)
 
-    return min_distance
+        if distance < closest_distance:
+            closest_distance = distance
+
+    return closest_distance

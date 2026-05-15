@@ -50,11 +50,13 @@ class GridMap:
 
         if self.start is not None:
             old_x, old_y = self.start
+
             if self.grid[old_y][old_x] == self.START:
                 self.grid[old_y][old_x] = self.FREE
 
         self.start = (x, y)
         self.grid[y][x] = self.START
+
         return True
 
     def set_goal(self, x: int, y: int) -> bool:
@@ -63,11 +65,13 @@ class GridMap:
 
         if self.goal is not None:
             old_x, old_y = self.goal
+
             if self.grid[old_y][old_x] == self.GOAL:
                 self.grid[old_y][old_x] = self.FREE
 
         self.goal = (x, y)
         self.grid[y][x] = self.GOAL
+
         return True
 
     def set_obstacle(self, x: int, y: int, value: bool | None = None) -> bool:

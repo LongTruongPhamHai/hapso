@@ -1,14 +1,19 @@
 from .parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
 
-GRID_CELL_SIZE = 20
+GRID_CELL_SIZE = 13
 TEXT_FONT = "Consolas"
 
 SMALL_TEXT_SIZE = 16
 NORMAL_TEXT_SIZE = 20
 LARGE_TEXT_SIZE = 24
 
+TKINTER_ALGOR_WINDOW_SIZE = "300x300"
+TKINTER_BATCH_WINDOW_SIZE = "300x150"
+TKINTER_TEXT_SIZE = 13
+TKINTER_TEXT_FONT = "Arial"
+
 WINDOW_HEIGHT = 700
-WINDOW_WIDTH = 1200
+WINDOW_WIDTH = 1260
 
 NAV_HEIGHT = WINDOW_HEIGHT
 NAV_WIDTH = 250
@@ -26,8 +31,9 @@ NAV_MENU = [
     "",
     "[A] Select algorithm",
     "[Space] Run",
+    "[R] Reset result",
+    "[V] Toggle Animate",
     "[B] Batch test",
-    "[D] Toggle debug",
     "[<] Speed -",
     "[>] Speed +",
     "",
