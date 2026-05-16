@@ -2,22 +2,56 @@ from config.parameter import (
     MIN_CLEARANCE,
     ASTAR_REMOVE_REDUNDANT,
     ASTAR_REMOVE_TRANSITION,
+    PSO_N_PARTICLES,
+    PSO_MAX_ITER,
+    PSO_WEIGHT,
+    PSO_COGNITIVE_COEFF,
+    PSO_SOCIAL_COEFF,
+    PSO_VMAX_K,
+    PSO_USE_SIW,
+    PSO_W_MAX,
+    PSO_W_MIN,
+    PSO_USE_TVAC,
+    PSO_COG_INIT,
+    PSO_COG_FINAL,
+    PSO_SOC_INIT,
+    PSO_SOC_FINAL,
+    PSO_USE_SOBL,
+    PSO_SOBL_MU,
+    PSO_SOBL_SIGMA,
 )
 from grid_map import GridMap
 from math import sqrt
 from typing import Optional
-from utils import min_distance_to_obstacle
+from utils import min_distance_line_to_obstacle
 
 import heapq
 
 
-class Astar:
+class HAPSO:
     def __init__(
         self,
         grid_map: GridMap,
         min_clearance: float = MIN_CLEARANCE,
         remove_redundant: bool = ASTAR_REMOVE_REDUNDANT,
         remove_transition: bool = ASTAR_REMOVE_TRANSITION,
+        n_particles: int = PSO_N_PARTICLES,
+        max_iter: int = PSO_MAX_ITER,
+        weight: float = PSO_WEIGHT,
+        cognitive_coeff: float = PSO_COGNITIVE_COEFF,
+        social_coeff: float = PSO_SOCIAL_COEFF,
+        vmax_k: float = PSO_VMAX_K,
+        use_siw: bool = PSO_USE_SIW,
+        w_min: float = PSO_W_MIN,
+        w_max: float = PSO_W_MAX,
+        use_tvac: bool = PSO_USE_TVAC,
+        cog_init: float = PSO_COG_INIT,
+        cog_final: float = PSO_COG_FINAL,
+        soc_init: float = PSO_SOC_INIT,
+        soc_final: float = PSO_SOC_FINAL,
+        use_sobl: bool = PSO_USE_SOBL,
+        sobl_mu: float = PSO_SOBL_MU,
+        sobl_signma: float = PSO_SOBL_SIGMA,
         animate: bool = False,
     ) -> None:
         self.grid_map = grid_map
@@ -36,6 +70,27 @@ class Astar:
         self.visited_order: list[tuple[float, float]] = []
 
         self.open_set: list[tuple[float, float, float, tuple[float, float]]] = []
+
+        self.n_particles = n_particles
+        self.max_iter = max_iter
+        self.weight = weight
+        self.cognitive_coeff = cognitive_coeff
+        self.social_coeff = social_coeff
+        self.vmax_k = vmax_k
+
+        self.use_siw = use_siw
+        self.w_min = w_min
+        self.w_max = w_max
+
+        self.use_tvac = use_tvac
+        self.cog_init = cog_init
+        self.cog_final = cog_final
+        self.soc_init = soc_init
+        self.soc_final = soc_final
+
+        self.use_sobl = use_sobl
+        self.sobl_mu = sobl_mu
+        self.sobl_sigma = self.sobl_sigma
 
         self.animate = animate
         self.visual_trace: list[tuple] = []
@@ -99,7 +154,7 @@ class Astar:
 
                 if self.min_clearance > 0.0:
                     if (
-                        min_distance_to_obstacle(current, neighbor, self.grid_map)
+                        min_distance_line_to_obstacle(current, neighbor, self.grid_map)
                         <= self.min_clearance
                     ):
                         continue
@@ -189,7 +244,7 @@ class Astar:
                 next_point = current_path[index + 1]
 
                 safe = (
-                    min_distance_to_obstacle(prev_point, next_point, self.grid_map)
+                    min_distance_line_to_obstacle(prev_point, next_point, self.grid_map)
                     > self.min_clearance
                 )
 
