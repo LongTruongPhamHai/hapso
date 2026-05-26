@@ -1,2 +1,4 @@
 venv/
-__pycache__/
+*__pycache__/
+data/maps/img
+data/result_batch_test

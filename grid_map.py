@@ -1,7 +1,5 @@
 from config.parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
 
-import numpy as np
-
 
 class GridMap:
     FREE = 0
@@ -19,21 +17,18 @@ class GridMap:
         self.start: tuple[int, int] | None = None
         self.goal: tuple[int, int] | None = None
 
-    def get_obstacles(self) -> list[tuple[int, int]]:
-        obstacles = []
+        self._obstacle_set: set[tuple[int, int]] = set()
+
+    def rebuild_obstacle_set(self) -> None:
+        self._obstacle_set = set()
 
         for y in range(self.height):
             for x in range(self.width):
                 if self.grid[y][x] == self.OBSTACLE:
-                    obstacles.append((x, y))
+                    self._obstacle_set.add((x, y))
 
-        return obstacles
-
-    def get_obstacle_count(self) -> int:
-        return len(self.get_obstacles())
-
-    def get_obstacles_as_centers(self) -> np.ndarray:
-        return np.array([[x + 0.5, y + 0.5] for x, y in self.get_obstacles()])
+    def get_obstacles(self) -> set[tuple[int, int]]:
+        return self._obstacle_set
 
     def is_inside(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
@@ -42,7 +37,7 @@ class GridMap:
         if not self.is_inside(x, y):
             return True
 
-        return self.grid[y][x] == self.OBSTACLE
+        return (x, y) in self._obstacle_set
 
     def set_start(self, x: int, y: int) -> bool:
         if not self.is_inside(x, y) or self.is_obstacle(x, y):
@@ -82,17 +77,26 @@ class GridMap:
             return False
 
         if value is None:
-            self.grid[y][x] = (
-                self.FREE if self.grid[y][x] == self.OBSTACLE else self.OBSTACLE
-            )
+            currently = self.grid[y][x] == self.OBSTACLE
+            value = not currently
+
+        if value:
+            self.grid[y][x] = self.OBSTACLE
+            self._obstacle_set.add((x, y))
+
         else:
-            self.grid[y][x] = self.OBSTACLE if value else self.FREE
+            self.grid[y][x] = self.FREE
+            self._obstacle_set.discard((x, y))
 
         return True
 
     def resize(self, width: int, height: int) -> None:
+
         self.width = width
         self.height = height
+
         self.grid = [[self.FREE for _ in range(width)] for _ in range(height)]
         self.start = None
         self.goal = None
+
+        self._obstacle_set = set()

@@ -16,6 +16,12 @@ from config.colors import (
     INDIGO,
     VIOLET,
 )
+from config.parameter import (
+    GRID_MAP_HEIGHT,
+    GRID_MAP_WIDTH,
+    MIN_CLEARANCE,
+    PSO_COLLISION_PENALTY,
+)
 from config.ui import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -27,10 +33,6 @@ from config.ui import (
     MODE_HEIGHT,
     MODE_OFFSET_X,
     MODE_OFFSET_Y,
-    GRID_SIDE_HEIGHT,
-    GRID_SIDE_WIDTH,
-    GRID_OFFSET_X,
-    GRID_OFFSET_Y,
     GRID_CELL_SIZE,
     TEXT_FONT,
     SMALL_TEXT_SIZE,
@@ -41,17 +43,16 @@ from config.ui import (
     TKINTER_TEXT_FONT,
     TKINTER_TEXT_SIZE,
 )
-from config.parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
+from datetime import datetime
 from grid_map import GridMap
+from hapso import HAPSO
+from openpyxl import Workbook
 from pathlib import Path
 from tkinter import filedialog, messagebox, Tk
 from utils import calculator_path_metrics, print_path_metrics
 
-import csv
 import json
-import pandas as pd
 import pygame
-import sys
 import time
 import tkinter as tk
 
@@ -281,7 +282,7 @@ class SettingsDialog(tk.Toplevel):
 class App:
     def __init__(self) -> None:
         print("=" * 60)
-        print("HAPSO: Hybrid A* Particle Swarm Optimizer")
+        print("HAPSO: Hybrid A-Star Particle Swarm Optimizer")
         print("=" * 60)
         print("[INIT] Initializing application...")
 
@@ -303,30 +304,41 @@ class App:
             width=self.width,
             height=self.height,
         )
+        self.min_clearance = MIN_CLEARANCE
+        self.collision_penalty = PSO_COLLISION_PENALTY
 
         self.running = True
 
         self.mode = "Free"
-        self.selected_algorithm = "Astar"
-        self.speed = 1
+        self.selected_algorithm = "HAPSO"
 
         self.is_dragging = False
         self.start_point: tuple[float, float] | None = None
         self.end_point: tuple[float, float] | None = None
-
         self.current_path: list[tuple[float, float]] | None = None
 
-        self.simulation_active = False
-        self.simulation_trace: list[tuple] = []
-        self.simulation_index = 0
-        self.simulation_visited: list[tuple[float, float]] = []
-        self.simulation_path: list[tuple[float, float]] = []
-        self.simulation_step = 0
-        self.simulation_last_update = 0.0
+        self.algorithm_names = [
+            "RRT",
+            "RRT-Star",
+            "PRM",
+            "Dijkstra",
+            "A-Star",
+            "HAPSO",
+            "All",
+        ]
 
-        self.animate_toggle = True
+        colors_for_algos = [BLUE, ORANGE, GREEN, VIOLET, INDIGO, YELLOW, RED]
+        self.algorithm_colors: dict[str, tuple[int, int, int]] = {}
+        color_idx = 0
+        for name in self.algorithm_names:
+            if name == "All":
+                continue
+            self.algorithm_colors[name] = colors_for_algos[
+                color_idx % len(colors_for_algos)
+            ]
+            color_idx += 1
 
-        self.algorithm_names = ["Astar"]
+        self.all_paths: dict[str, list[tuple[float, float]]] = {}
 
         self.recalc_layout()
 
@@ -339,7 +351,6 @@ class App:
     def run(self) -> None:
         while self.running:
             self.handle_events()
-            self.update_simulation()
 
             self.draw_ui()
 
@@ -416,32 +427,32 @@ class App:
         start: tuple[float, float],
         end: tuple[float, float],
     ) -> list[tuple[float, float]]:
-        start_x, start_y = start
-        end_x, end_y = end
+        x_start, y_start = start
+        x_end, y_end = end
         points = []
 
-        dx = abs(end_x - start_x)
-        dy = abs(end_y - start_y)
-        err = dx - dy
+        delta_x = abs(x_end - x_start)
+        delta_y = abs(y_end - y_start)
+        err = delta_x - delta_y
 
-        sx = 1 if start_x < end_x else -1
-        sy = 1 if start_y < end_y else -1
+        step_x = 1 if x_start < x_end else -1
+        step_y = 1 if y_start < y_end else -1
 
-        x, y = start_x, start_y
+        x, y = x_start, y_start
         while True:
             points.append((x, y))
 
-            if x == end_x and y == end_y:
+            if x == x_end and y == y_end:
                 break
 
             e2 = 2 * err
-            if e2 > -dy:
-                err -= dy
-                x += sx
+            if e2 > -delta_y:
+                err -= delta_y
+                x += step_x
 
-            if e2 < dx:
-                err += dx
-                y += sy
+            if e2 < delta_x:
+                err += delta_x
+                y += step_y
 
         return points
 
@@ -453,6 +464,7 @@ class App:
         for x, y in points:
             if self.mode == "Obstacle":
                 changed = self.grid_map.set_obstacle(x, y, True) or changed
+
             elif self.mode == "Erase":
                 changed = self.grid_map.set_obstacle(x, y, False) or changed
 
@@ -460,101 +472,71 @@ class App:
             self.current_path = None
 
     def handle_mouse_down(self, event: pygame.event.Event) -> None:
-        """Xử lý sự kiện nhấn nút chuột trái."""
-        # Chỉ xử lý nút chuột trái (button=1)
         if event.button != 1:
             return
 
-        # Chuyển tọa độ pixel thành tọa độ ô lưới
         grid_pos = self.screen_to_grid(event.pos)
         if grid_pos is None:
-            return  # Bỏ qua nếu click ngoài lưới
+            return
 
         if self.mode == "Free":
-            pass  # Không làm gì ở chế độ Free
+            pass
 
         elif self.mode in ("Obstacle", "Erase"):
-            # Bắt đầu kéo để vẽ chướng ngại vật hoặc xóa
             self.is_dragging = True
             self.start_point = grid_pos
             self.end_point = grid_pos
 
         elif self.mode == "Start":
-            # Đặt vị trí start cho robot
             if self.grid_map.set_start(*grid_pos):
-                self.current_path = None  # Xóa đường đi cũ khi thay đổi start
+                self.current_path = None
                 self.stop_simulation()
 
         elif self.mode == "Goal":
-            # Đặt vị trí goal (đích) cho robot
             if self.grid_map.set_goal(*grid_pos):
-                self.current_path = None  # Xóa đường đi cũ khi thay đổi goal
+                self.current_path = None
                 self.stop_simulation()
 
     def handle_keydown(self, event: pygame.event.Event) -> None:
-        """Xử lý sự kiện nhấn phím bàn phím."""
-        # ESC: Thoát ứng dụng
         if event.key == pygame.K_ESCAPE:
             self.running = False
 
-        # Phím số 0-2, S, G: Chuyển chế độ vẽ
         elif event.key == pygame.K_0:
-            self.mode = "Free"  # Chế độ không làm gì
+            self.mode = "Free"
 
         elif event.key == pygame.K_1:
-            self.mode = "Obstacle"  # Vẽ chướng ngại vật
+            self.mode = "Obstacle"
 
         elif event.key == pygame.K_2:
-            self.mode = "Erase"  # Xóa chướng ngại vật
+            self.mode = "Erase"
 
         elif event.key == pygame.K_s:
-            self.mode = "Start"  # Đặt điểm start
+            self.mode = "Start"
 
         elif event.key == pygame.K_g:
-            self.mode = "Goal"  # Đặt điểm goal
+            self.mode = "Goal"
 
-        # Phím C: Xóa toàn bộ bản đồ
         elif event.key == pygame.K_c:
             self.clear_map()
 
-        # Phím I: Import bản đồ từ file JSON
         elif event.key == pygame.K_i:
             self.import_map()
 
-        # Phím E: Export bản đồ ra file JSON
         elif event.key == pygame.K_e:
             self.export_map()
 
-        # Phím A: Mở dialog chọn thuật toán
         elif event.key == pygame.K_a:
             self.open_algo_dialog()
 
-        # Phím SPACE: Chạy thuật toán A* trên bản đồ hiện tại
         elif event.key == pygame.K_SPACE:
             self.run_selected_algorithm()
 
-        # Phím V: Toggle Animate mode
-        elif event.key == pygame.K_v:
-            self.animate_toggle = not self.animate_toggle
-            print(f"[UI] Animate mode (show path immediately): {self.animate_toggle}")
-
-        # Phím R: Xóa kết quả chạy gần nhất
         elif event.key == pygame.K_r:
             self.reset_result()
 
-        # Phím B: Mở dialog batch test (so sánh nhiều thuật toán)
         elif event.key == pygame.K_b:
             self.open_batch_test_dialog()
 
-        # Phím , hoặc mũi tên trái: Giảm tốc độ trực quan hóa
-        elif event.key in (pygame.K_COMMA, pygame.K_LEFT):
-            self.change_speed(-1)
-
-        # Phím . hoặc mũi tên phải: Tăng tốc độ trực quan hóa
-        elif event.key in (pygame.K_PERIOD, pygame.K_RIGHT):
-            self.change_speed(1)
-
-        # Phím P: Mở dialog cài đặt (thay đổi kích thước bản đồ, tham số)
         elif event.key == pygame.K_p:
             self.open_settings_dialog()
 
@@ -563,6 +545,7 @@ class App:
             [GridMap.FREE for _ in range(self.grid_map.width)]
             for _ in range(self.grid_map.height)
         ]
+        self.grid_map.rebuild_obstacle_set()
         self.grid_map.start = None
         self.grid_map.goal = None
         self.current_path = None
@@ -596,16 +579,19 @@ class App:
 
             self.grid_map = loaded
             self.current_path = None
+            self.all_paths = {}
             self.stop_simulation()
             self.recalc_layout()
 
             print(
                 f"[IMPORT] SUCCESS - Map loaded: {self.grid_map.width}x{self.grid_map.height}"
             )
+
             if self.grid_map.start:
                 print(f"[IMPORT] Start position: {self.grid_map.start}")
             if self.grid_map.goal:
                 print(f"[IMPORT] Goal position: {self.grid_map.goal}")
+
         except Exception as e:
             print(f"[IMPORT] ERROR - {str(e)}")
 
@@ -613,27 +599,33 @@ class App:
         root = Tk()
         root.withdraw()
         root.attributes("-topmost", True)
+
         try:
             return filedialog.askopenfilename(
                 parent=root,
                 title="Import map JSON",
                 filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
             )
+
         finally:
             root.destroy()
 
     def grid_map_from_dict(self, data: dict) -> GridMap | None:
         if not isinstance(data, dict):
             return None
+
         if "width" not in data or "height" not in data or "grid" not in data:
             return None
 
         try:
             grid_map = GridMap(data["width"], data["height"])
             grid_map.grid = data["grid"]
+            grid_map.rebuild_obstacle_set()
             grid_map.start = tuple(data["start"]) if data.get("start") else None
             grid_map.goal = tuple(data["goal"]) if data.get("goal") else None
+
             return grid_map
+
         except (TypeError, ValueError):
             return None
 
@@ -656,6 +648,7 @@ class App:
 
             print(f"[EXPORT] SUCCESS - Map saved to: {filename}")
             print(f"[EXPORT] Map size: {self.grid_map.width}x{self.grid_map.height}")
+
         except Exception as e:
             print(f"[EXPORT] ERROR - {str(e)}")
 
@@ -663,6 +656,7 @@ class App:
         root = Tk()
         root.withdraw()
         root.attributes("-topmost", True)
+
         try:
             return filedialog.asksaveasfilename(
                 parent=root,
@@ -671,6 +665,7 @@ class App:
                 defaultextension=".json",
                 filetypes=(("JSON files", "*.json"), ("All files", "*.*")),
             )
+
         finally:
             root.destroy()
 
@@ -695,113 +690,110 @@ class App:
             self.selected_algorithm = self.algorithm_names[dialog.result]
             print(f"[MENU] Algorithm selected: {self.selected_algorithm}")
 
-    def run_selected_algorithm(self, animate: bool = True) -> None:
-        """Chạy thuật toán path planning được chọn trên bản đồ hiện tại."""
-        # Guard clause: Kiểm tra start và goal đã được đặt chưa
+    def run_selected_algorithm(self) -> None:
         if self.grid_map.start is None or self.grid_map.goal is None:
             print("[ALGORITHM] ERROR - Start and goal positions must be set")
             return
 
-        # Log thông tin bắt đầu
+        print("-" * 120)
+        print(f"[ALGORITHM] Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"[ALGORITHM] Running: {self.selected_algorithm}")
         print(f"[ALGORITHM] Start: {self.grid_map.start}, Goal: {self.grid_map.goal}")
 
-        # Ghi nhận thời gian bắt đầu (high-resolution timer)
         start_time = time.perf_counter()
 
-        # Chạy thuật toán dựa trên lựa chọn
+        if self.selected_algorithm != "All":
+            self.all_paths = {}
+
         match self.selected_algorithm:
-            case "Astar":
-                # `should_animate` quyết định việc planner có lưu trace để phát lại hay không.
-                should_animate = animate and self.animate_toggle
-                planner = Astar(self.grid_map, animate=should_animate)
-                self.current_path = planner.plan()  # Trả về list waypoint hoặc None
+            case "A-Star":
+                planner = Astar(self.grid_map)
+                self.current_path = planner.plan()
+                self.stop_simulation()
 
-                # Nếu có trace thì phát lại trace đó, còn không thì dừng playback.
-                trace = getattr(planner, "visual_trace", [])
-                if should_animate and trace:
-                    self.start_simulation(trace)
-                else:
-                    self.stop_simulation()
+            case "HAPSO":
+                planner = HAPSO(self.grid_map)
+                self.current_path = planner.plan()
+                self.stop_simulation()
 
-        # Tính thời gian thực thi
+            case "All":
+                self.all_paths = {}
+                self.all_path_metrics = {}
+                for name in self.algorithm_names:
+                    if name == "All":
+                        continue
+
+                    print(f"[ALGORITHM:All] Running: {name}")
+
+                    if name == "A-Star":
+                        planner = Astar(self.grid_map)
+                        algo_start_time = time.perf_counter()
+                        path = planner.plan()
+                    elif name == "HAPSO":
+                        planner = HAPSO(self.grid_map)
+                        algo_start_time = time.perf_counter()
+                        path = planner.plan()
+                    else:
+                        path = None
+                        algo_start_time = time.perf_counter()
+
+                    algo_elapsed_time = time.perf_counter() - algo_start_time
+
+                    self.all_paths[name] = path or []
+                    if not hasattr(self, "all_path_metrics"):
+                        self.all_path_metrics = {}
+                    self.all_path_metrics[name] = {
+                        **calculator_path_metrics(
+                            path or [],
+                            name,
+                            self.grid_map,
+                            self.min_clearance,
+                            self.collision_penalty,
+                        )[name],
+                        "Execution time": algo_elapsed_time,
+                    }
+
+                self.current_path = None
+                self.stop_simulation()
+
         elapsed_time = time.perf_counter() - start_time
+        if self.selected_algorithm == "All":
+            print_path_metrics(self.all_path_metrics)
+            print("[ALGORITHM:All] Completed all planners")
 
-        # Hiển thị kết quả
-        if self.current_path:
-            # Đường đi tìm được: log số waypoint và thời gian
-            print(f"[ALGORITHM] SUCCESS")
-            # print(f"[ALGORITHM] Execution time: {elapsed_time:.4f}s")
-
-            path_metrics = calculator_path_metrics(
-                self.current_path, self.selected_algorithm, self.grid_map
-            )
-            path_metrics[self.selected_algorithm]["Excution time"] = elapsed_time
-
-            print_path_metrics(path_metrics)
         else:
-            # Không tìm được đường đi
-            print(f"[ALGORITHM] FAILED - No path found")
-            print(f"[ALGORITHM] Execution time: {elapsed_time:.4f}s")
+            if self.current_path:
+                print(
+                    f"[ALGORITHM] SUCCESS | Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+
+                print(f"[ALGORITHM] PATH: {self.current_path}")
+
+                path_metrics = calculator_path_metrics(
+                    self.current_path,
+                    self.selected_algorithm,
+                    self.grid_map,
+                    self.min_clearance,
+                    self.collision_penalty,
+                )[self.selected_algorithm]
+                path_metrics["Execution time"] = elapsed_time
+
+                print_path_metrics({self.selected_algorithm: path_metrics})
+
+            else:
+                print(
+                    f"[ALGORITHM] FAILED - No path found | Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                print(f"[ALGORITHM] Execution time: {elapsed_time:.4f}s")
 
     def start_simulation(self, trace: list[tuple]) -> None:
-        # Khởi tạo bộ đệm playback từ trace do planner ghi lại.
-        self.simulation_trace = list(trace)
-        self.simulation_index = 0
-        self.simulation_visited = []
-        self.simulation_path = []
-        self.current_path = None
-        self.simulation_step = 0
-        self.simulation_last_update = time.perf_counter()
-        self.simulation_active = bool(self.simulation_trace)
+        return
 
     def stop_simulation(self) -> None:
-        # Xóa toàn bộ trạng thái playback để lần chạy sau không dính dữ liệu cũ.
-        self.simulation_active = False
-        self.simulation_trace = []
-        self.simulation_index = 0
-        self.simulation_visited = []
-        self.simulation_path = []
-        self.simulation_step = 0
-        self.simulation_last_update = 0.0
+        return
 
     def update_simulation(self) -> None:
-        if not self.simulation_active:
-            return
-
-        # Hết trace thì dừng luôn.
-        if self.simulation_index >= len(self.simulation_trace):
-            self.stop_simulation()
-            return
-
-        # Speed ở đây chỉ điều khiển tốc độ phát animation, không ảnh hưởng thuật toán.
-        effective_speed = max(1.0, self.speed / 2.0)
-        step_interval = max(0.03, 0.18 / effective_speed)
-        now = time.perf_counter()
-        if now - self.simulation_last_update < step_interval:
-            return
-
-        self.simulation_last_update = now
-        event = self.simulation_trace[self.simulation_index]
-        self.simulation_index += 1
-        self.simulation_step = self.simulation_index
-
-        if not isinstance(event, tuple) or not event:
-            return
-
-        kind = event[0]
-        if kind == "visit" and len(event) >= 2:
-            # Tô sáng thêm một ô đã được A* thăm.
-            coord = event[1]
-            self.simulation_visited.append(coord)
-        elif kind == "path" and len(event) >= 2:
-            # Lưu đường đi cuối cùng để renderer vẽ path ngay sau khi trace kết thúc.
-            path = event[1] or []
-            self.simulation_path = list(path)
-            self.current_path = list(path)
-            self.simulation_active = False
-            self.simulation_trace = []
-            self.simulation_index = 0
+        return
 
     def open_batch_test_dialog(self) -> None:
         dialog = BatchTestDialog(self.tk_root)
@@ -816,6 +808,13 @@ class App:
             messagebox.showwarning("Batch Test", "Please set start and goal first.")
             return
 
+        if self.selected_algorithm == "All":
+            messagebox.showwarning(
+                "Batch Test",
+                "Please select a single algorithm before running batch test.",
+            )
+            return
+
         if run_count < 1:
             return
 
@@ -827,23 +826,180 @@ class App:
         successful_runs = 0
         total_time = 0.0
         path_lengths = []
+        fitness_values = []
+        run_records: list[dict[str, object]] = []
+        best_run: dict[str, object] | None = None
+        output_dir = Path(__file__).resolve().parent / "data" / "result_batch_test"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         for i in range(run_count):
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    print("[BATCH] Quit requested during batch test. Stopping.")
+                    self.running = False
+                    break
+                elif ev.type == pygame.KEYDOWN:
+                    try:
+                        self.handle_keydown(ev)
+                    except Exception:
+                        pass
+            if not self.running:
+                break
+
             print(f"[BATCH] Run {i+1}/{run_count}...", end=" ", flush=True)
             start_time = time.perf_counter()
-            self.run_selected_algorithm(animate=False)
+            self.run_selected_algorithm()
             run_time = time.perf_counter() - start_time
             total_time += run_time
 
-            if self.current_path:
+            current_path = list(self.current_path) if self.current_path else []
+            is_success = bool(current_path) and current_path[-1] == self.grid_map.goal
+
+            if is_success:
                 successful_runs += 1
-                path_lengths.append(len(self.current_path))
-                print(f"✓ Path: {len(self.current_path)} waypoints ({run_time:.4f}s)")
+                path_length = len(current_path)
+                path_lengths.append(path_length)
+
+                path_metrics = calculator_path_metrics(
+                    current_path,
+                    self.selected_algorithm,
+                    self.grid_map,
+                    self.min_clearance,
+                    self.collision_penalty,
+                )[self.selected_algorithm]
+                fitness = path_metrics["TOTAL FITNESS"]
+                fitness_values.append(fitness)
+
+                run_record = {
+                    "Run_ID": i + 1,
+                    "Success": True,
+                    "Path_Length": path_length,
+                    "Total_Distance": path_metrics["Total distance"],
+                    "Total_Waypoint": path_metrics["Total waypoint"],
+                    "Total_Angle": path_metrics["Total angle"],
+                    "Min_Angle": path_metrics["Min angle"],
+                    "Max_Angle": path_metrics["Max angle"],
+                    "Average_Angle": path_metrics["Average angle"],
+                    "Min_Clearance": path_metrics["Min clearance"],
+                    "TOTAL_FITNESS": fitness,
+                    "Execution_Time_s": run_time,
+                    "Path": json.dumps(current_path),
+                }
+
+                if (
+                    best_run is None
+                    or fitness < best_run["TOTAL_FITNESS"]
+                    or (
+                        fitness == best_run["TOTAL_FITNESS"]
+                        and path_length < best_run["Path_Length"]
+                    )
+                ):
+                    best_run = {**run_record, "path": current_path}
+
             else:
-                print(f"✗ No path found ({run_time:.4f}s)")
+                run_record = {
+                    "Run_ID": i + 1,
+                    "Success": False,
+                    "Path_Length": 0,
+                    "Total_Distance": None,
+                    "Total_Waypoint": None,
+                    "Total_Angle": None,
+                    "Min_Angle": None,
+                    "Max_Angle": None,
+                    "Average_Angle": None,
+                    "Min_Clearance": None,
+                    "TOTAL_FITNESS": None,
+                    "Execution_Time": run_time,
+                    "Path": "",
+                }
+                print(f"No valid path found ({run_time:.4f}s)")
+
+            run_records.append(run_record)
+
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    print("[BATCH] Quit requested after run. Stopping.")
+                    self.running = False
+                    break
+                elif ev.type == pygame.KEYDOWN:
+                    try:
+                        self.handle_keydown(ev)
+                    except Exception:
+                        pass
+            if not self.running:
+                break
 
         avg_length = sum(path_lengths) / len(path_lengths) if path_lengths else 0.0
         avg_time = total_time / run_count if run_count else 0.0
+        avg_fitness = (
+            sum(fitness_values) / len(fitness_values) if fitness_values else 0.0
+        )
+
+        if best_run is not None:
+            self.current_path = list(best_run["path"])
+        else:
+            self.current_path = None
+
+        workbook = Workbook()
+        results_sheet = workbook.active
+        results_sheet.title = "Results"
+
+        results_headers = [
+            "Run_ID",
+            "Success",
+            "Path_Length",
+            "Total_Distance",
+            "Total_Waypoint",
+            "Total_Angle",
+            "Min_Angle",
+            "Max_Angle",
+            "Average_Angle",
+            "Min_Clearance",
+            "TOTAL_FITNESS",
+            "Execution_Time",
+            "Path",
+        ]
+
+        results_sheet.append(results_headers)
+        for record in run_records:
+            results_sheet.append([record.get(column) for column in results_headers])
+
+        summary_sheet = workbook.create_sheet("Summary")
+        summary_rows = [
+            ("Algorithm", self.selected_algorithm),
+            ("Total runs", run_count),
+            ("Successful runs", successful_runs),
+            ("Success rate", successful_runs / run_count if run_count else 0.0),
+            ("Average path length", avg_length),
+            ("Average fitness", avg_fitness),
+            ("Average time (s)", avg_time),
+            ("Total time (s)", total_time),
+            (
+                "Best run",
+                best_run["Run_ID"] if best_run is not None else "N/A",
+            ),
+            (
+                "Best fitness",
+                best_run["TOTAL_FITNESS"] if best_run is not None else "N/A",
+            ),
+            (
+                "Best path length",
+                best_run["Path_Length"] if best_run is not None else "N/A",
+            ),
+        ]
+        summary_sheet.append(["Metric", "Value"])
+        for metric_name, metric_value in summary_rows:
+            summary_sheet.append([metric_name, metric_value])
+
+        algo_safe = "".join(
+            [
+                c if (c.isalnum() or c in (" ", "_")) else "_"
+                for c in self.selected_algorithm
+            ]
+        ).replace(" ", "_")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = output_dir / f"{timestamp}_{algo_safe}.xlsx"
+        workbook.save(output_file)
 
         print(f"{'='*60}")
         print(f"[BATCH] Results:")
@@ -851,25 +1007,44 @@ class App:
         print(f"[BATCH]   Successful: {successful_runs}/{run_count}")
         print(f"[BATCH]   Success rate: {successful_runs/run_count*100:.1f}%")
         print(f"[BATCH]   Avg path length: {avg_length:.2f} waypoints")
+        print(f"[BATCH]   Avg fitness: {avg_fitness:.4f}")
         print(f"[BATCH]   Avg time: {avg_time:.4f}s")
         print(f"[BATCH]   Total time: {total_time:.4f}s")
+        print(f"[BATCH]   Excel: {output_file}")
+        if best_run is not None:
+            print(
+                f"[BATCH]   Best run: {best_run['Run_ID']} | Fitness = {best_run['TOTAL_FITNESS']:.4f}"
+            )
         print(f"{'='*60}\n")
 
-        messagebox.showinfo(
-            "Batch Test",
-            (
+        if best_run is not None:
+            message_text = (
                 f"Runs: {run_count}\n"
                 f"Success: {successful_runs}/{run_count}\n"
                 f"Avg path length: {avg_length:.2f}\n"
-                f"Avg time: {avg_time:.4f} s"
-            ),
-        )
+                f"Avg fitness: {avg_fitness:.4f}\n"
+                f"Avg time: {avg_time:.4f} s\n"
+                f"Best run: {best_run['Run_ID']}\n"
+                f"Excel: {output_file}"
+            )
+        else:
+            message_text = (
+                f"Runs: {run_count}\n"
+                f"No valid path was found.\n"
+                f"Excel: {output_file}"
+            )
 
-    def change_speed(self, delta: int) -> None:
-        old_speed = self.speed
-        self.speed = max(1, min(10, self.speed + delta))
-        if old_speed != self.speed:
-            print(f"[MENU] Speed changed: {old_speed} -> {self.speed}")
+        messagebox.showinfo("Batch Test", message_text)
+
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                print("[BATCH] Quit requested after dialog. Exiting.")
+                self.running = False
+            elif ev.type == pygame.KEYDOWN:
+                try:
+                    self.handle_keydown(ev)
+                except Exception:
+                    pass
 
     def open_settings_dialog(self) -> None:
         dialog = SettingsDialog(
@@ -894,18 +1069,14 @@ class App:
         y_axis_label_width, x_axis_label_height = self._get_coordinate_axis_margins()
         axis_gap = 8
 
-        content_width = map_width + y_axis_label_width + axis_gap
-        content_height = map_height + x_axis_label_height + axis_gap
+        total_content_width = map_width + y_axis_label_width + axis_gap
+        total_content_height = map_height + x_axis_label_height + axis_gap
 
-        self.grid_offset_x = (
-            NAV_WIDTH
-            + max(0, (available_width - content_width) // 2)
-            + y_axis_label_width
-            + axis_gap
-        )
-        self.grid_offset_y = MODE_HEIGHT + max(
-            0, (available_height - content_height) // 2
-        )
+        start_x = NAV_WIDTH + max(0, (available_width - total_content_width) // 2)
+        start_y = MODE_HEIGHT + max(0, (available_height - total_content_height) // 2)
+
+        self.grid_offset_x = start_x + y_axis_label_width + axis_gap
+        self.grid_offset_y = start_y + x_axis_label_height + axis_gap
 
     def resize_grid(self, width: int, height: int, cell_size: int) -> None:
         self.width = width
@@ -914,6 +1085,7 @@ class App:
 
         self.grid_map.resize(width=self.width, height=self.height)
         self.current_path = None
+        self.all_paths = {}
         self.stop_simulation()
 
         self.recalc_layout()
@@ -946,35 +1118,59 @@ class App:
             y_offset += 30
 
     def draw_status_bar(self) -> None:
-        animate_text = f" | Animate: {'ON' if self.animate_toggle else 'OFF'}"
         mode_text = Text(
             self.screen,
             MODE_OFFSET_X,
             MODE_OFFSET_Y,
             BLACK,
-            f"Mode: {self.mode} | Alg: {self.selected_algorithm}{animate_text} | Speed: {self.speed}",
+            f"Mode: {self.mode} | Alg: {self.selected_algorithm}",
         )
         mode_text.draw_text()
         pygame.draw.line(
             self.screen, BLACK, (NAV_WIDTH, MODE_HEIGHT), (WINDOW_WIDTH, MODE_HEIGHT), 2
         )
 
-    def draw_grid_map(self) -> None:
-        """Vẽ bản đồ lưới với chướng ngại vật, start, goal và đường đi."""
-        visited_limit = min(self.simulation_step, len(self.simulation_visited))
-        visited_set = set(self.simulation_visited[:visited_limit])
-        path_limit = max(0, self.simulation_step - len(self.simulation_visited))
-        visited_overlay = None
-        if visited_set:
-            visited_overlay = pygame.Surface(
-                (self.cell_size, self.cell_size), pygame.SRCALPHA
-            )
-            visited_overlay.fill((180, 220, 255, 120))
+        try:
+            legend_items = [
+                (name, self.algorithm_colors[name])
+                for name in self.algorithm_names
+                if name in self.algorithm_colors
+            ]
 
-        # Vòng lặp đơi để vẽ từng ô lưới
+            if legend_items:
+                padding = 4
+                legend_font = pygame.font.SysFont(TEXT_FONT, SMALL_TEXT_SIZE)
+                box_size = SMALL_TEXT_SIZE - 4
+                item_h = SMALL_TEXT_SIZE
+
+                total_w = padding
+                for name, _ in legend_items:
+                    total_w += box_size + 4 + legend_font.size(name)[0] + padding
+
+                legend_h = box_size + padding * 2
+                legend_top = (MODE_HEIGHT - legend_h) // 2
+                legend_left = WINDOW_WIDTH - total_w - 10
+
+                legend_surf = pygame.Surface((total_w, legend_h), pygame.SRCALPHA)
+                legend_surf.fill((255, 255, 255, 180))
+                self.screen.blit(legend_surf, (legend_left, legend_top))
+
+                x_cursor = legend_left + padding
+                y_item = legend_top + padding
+                for name, color in legend_items:
+                    pygame.draw.rect(
+                        self.screen, color, (x_cursor, y_item, box_size, box_size)
+                    )
+                    label_surf = legend_font.render(name, True, BLACK)
+                    self.screen.blit(label_surf, (x_cursor + box_size + 4, y_item))
+                    x_cursor += box_size + 4 + legend_font.size(name)[0] + padding
+
+        except Exception:
+            pass
+
+    def draw_grid_map(self) -> None:
         for row in range(self.grid_map.height):
             for col in range(self.grid_map.width):
-                # Tính tọa độ pixel của ô lưới (x, y, width, height)
                 rect = (
                     self.grid_offset_x + col * self.cell_size,
                     self.grid_offset_y + row * self.cell_size,
@@ -982,80 +1178,111 @@ class App:
                     self.cell_size,
                 )
 
-                # Lấy trạng thái ô từ grid_map (FREE, OBSTACLE, START, hoặc GOAL)
                 value = self.grid_map.grid[row][col]
 
-                # Vẽ ô với màu tương ứng dựa trên trạng thái
                 if value == self.grid_map.OBSTACLE:
-                    pygame.draw.rect(self.screen, BLACK, rect)  # Chướng ngại vật = đen
+                    pygame.draw.rect(self.screen, BLACK, rect)
 
                 elif value == self.grid_map.START:
-                    pygame.draw.rect(self.screen, GREEN, rect)  # Start = xanh lá
+                    pygame.draw.rect(self.screen, GREEN, rect)
                     # pygame.draw.circle(
                     #     self.screen,
                     #     WHITE,
                     #     (rect[0] + self.cell_size // 2, rect[1] + self.cell_size // 2),
                     #     self.cell_size // 5,
                     # )
+
                 elif value == self.grid_map.GOAL:
-                    pygame.draw.rect(self.screen, RED, rect)  # Goal = đỏ
+                    pygame.draw.rect(self.screen, RED, rect)
                     # pygame.draw.circle(
                     #     self.screen,
                     #     WHITE,
                     #     (rect[0] + self.cell_size // 2, rect[1] + self.cell_size // 2),
                     #     self.cell_size // 5,
                     # )
+
                 else:
-                    pygame.draw.rect(self.screen, WHITE, rect)  # Ô trống = trắng
+                    pygame.draw.rect(self.screen, WHITE, rect)
 
-                if visited_overlay is not None and (col, row) in visited_set:
-                    self.screen.blit(visited_overlay, (rect[0], rect[1]))
+                pygame.draw.rect(self.screen, LIGHT, rect, 1)
 
-                # Vẽ đường viền xám quanh mỗi ô
-                pygame.draw.rect(self.screen, MEDIUM, rect, 1)
+        if self.selected_algorithm == "All" and self.all_paths:
+            for name, path_points in self.all_paths.items():
+                if not path_points or len(path_points) <= 1:
+                    continue
 
-        # Vẽ đường đi (nếu A* đã tìm được)
-        path_points = self.current_path or []
-        if self.simulation_active and self.simulation_path:
-            if path_limit <= 0:
-                path_points = self.simulation_path[:1]
-            else:
-                path_points = self.simulation_path[
-                    : min(len(self.simulation_path), path_limit + 1)
-                ]
+                color = self.algorithm_colors.get(name, BLUE)
+                for index in range(len(path_points) - 1):
+                    x_start, y_start = path_points[index]
+                    x_end, y_end = path_points[index + 1]
 
-        if path_points and len(path_points) > 1:
-            # Vẽ các đoạn thẳng nối giữa các waypoint liên tiếp
-            for index in range(len(path_points) - 1):
-                start_x, start_y = path_points[index]
-                end_x, end_y = path_points[index + 1]
+                    start_x = (
+                        self.grid_offset_x
+                        + x_start * self.cell_size
+                        + self.cell_size // 2
+                    )
+                    start_y = (
+                        self.grid_offset_y
+                        + y_start * self.cell_size
+                        + self.cell_size // 2
+                    )
 
-                # Chuyển tọa độ ô lưới thành tọa độ pixel (tâm ô)
-                start_x = (
-                    self.grid_offset_x + start_x * self.cell_size + self.cell_size // 2
-                )
-                start_y = (
-                    self.grid_offset_y + start_y * self.cell_size + self.cell_size // 2
-                )
+                    end_x = (
+                        self.grid_offset_x
+                        + x_end * self.cell_size
+                        + self.cell_size // 2
+                    )
+                    end_y = (
+                        self.grid_offset_y
+                        + y_end * self.cell_size
+                        + self.cell_size // 2
+                    )
 
-                end_x = (
-                    self.grid_offset_x + end_x * self.cell_size + self.cell_size // 2
-                )
-                end_y = (
-                    self.grid_offset_y + end_y * self.cell_size + self.cell_size // 2
-                )
+                    pygame.draw.line(
+                        self.screen, color, (start_x, start_y), (end_x, end_y), 2
+                    )
 
-                # Vẽ đoạn thẳng xanh nối 2 waypoint
-                pygame.draw.line(
-                    self.screen, BLUE, (start_x, start_y), (end_x, end_y), 2
-                )
+        else:
+            path_points = self.current_path or []
 
-            # Vẽ chấm tròn tại từng waypoint để thể hiện các nút trên path
+            if path_points and len(path_points) > 1:
+                for index in range(len(path_points) - 1):
+                    x_start, y_start = path_points[index]
+                    x_end, y_end = path_points[index + 1]
+
+                    start_x = (
+                        self.grid_offset_x
+                        + x_start * self.cell_size
+                        + self.cell_size // 2
+                    )
+                    start_y = (
+                        self.grid_offset_y
+                        + y_start * self.cell_size
+                        + self.cell_size // 2
+                    )
+
+                    end_x = (
+                        self.grid_offset_x
+                        + x_end * self.cell_size
+                        + self.cell_size // 2
+                    )
+                    end_y = (
+                        self.grid_offset_y
+                        + y_end * self.cell_size
+                        + self.cell_size // 2
+                    )
+
+                    pygame.draw.line(
+                        self.screen, BLUE, (start_x, start_y), (end_x, end_y), 2
+                    )
+
             node_radius = max(3, self.cell_size // 6)
             for x, y in path_points:
                 center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
                 center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
+
                 pygame.draw.circle(self.screen, BLUE, (center_x, center_y), node_radius)
+
                 pygame.draw.circle(
                     self.screen,
                     WHITE,
@@ -1097,7 +1324,7 @@ class App:
             self.screen, BLACK, (grid_left, grid_top), (grid_left, grid_bottom), 2
         )
         pygame.draw.line(
-            self.screen, BLACK, (grid_left, grid_bottom), (grid_right, grid_bottom), 2
+            self.screen, BLACK, (grid_left, grid_top), (grid_right, grid_top), 2
         )
 
         max_x_tick = self.grid_map.width - (self.grid_map.width % 5)
@@ -1106,18 +1333,24 @@ class App:
             pygame.draw.line(
                 self.screen,
                 BLACK,
-                (x_pos, grid_bottom),
-                (x_pos, grid_bottom + axis_tick_length),
+                (x_pos, grid_top - axis_tick_length),
+                (x_pos, grid_top),
                 1,
             )
+
             label_surface = label_font.render(str(coord), True, BLACK)
             label_x = x_pos - label_surface.get_width() // 2
-            label_y = grid_bottom + axis_tick_length + axis_label_gap
+            label_y = (
+                grid_top
+                - axis_tick_length
+                - axis_label_gap
+                - label_surface.get_height()
+            )
             self.screen.blit(label_surface, (label_x, label_y))
 
         max_y_tick = self.grid_map.height - (self.grid_map.height % 5)
         for coord in range(0, max_y_tick + 1, 5):
-            y_pos = grid_bottom - coord * self.cell_size
+            y_pos = grid_top + coord * self.cell_size
             pygame.draw.line(
                 self.screen,
                 BLACK,
@@ -1125,6 +1358,7 @@ class App:
                 (grid_left, y_pos),
                 1,
             )
+
             label_surface = label_font.render(str(coord), True, BLACK)
             label_x = (
                 grid_left - y_axis_label_width + axis_tick_length + axis_label_gap - 10

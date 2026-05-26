@@ -1,13 +1,13 @@
 from .parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
 
-GRID_CELL_SIZE: int = 13
+GRID_CELL_SIZE: int = 18
 TEXT_FONT: str = "Consolas"
 
 SMALL_TEXT_SIZE: int = 16
 NORMAL_TEXT_SIZE: int = 20
 LARGE_TEXT_SIZE: int = 24
 
-TKINTER_ALGOR_WINDOW_SIZE: str = "300x300"
+TKINTER_ALGOR_WINDOW_SIZE: str = "300x350"
 TKINTER_BATCH_WINDOW_SIZE: str = "300x150"
 TKINTER_TEXT_SIZE: int = 13
 TKINTER_TEXT_FONT: str = "Arial"
@@ -32,10 +32,7 @@ NAV_MENU: list[str] = [
     "[A] Select algorithm",
     "[Space] Run",
     "[R] Reset result",
-    "[V] Toggle Animate",
     "[B] Batch test",
-    "[<] Speed -",
-    "[>] Speed +",
     "",
     "[P] Setting",
     "[ESC] Quit",
