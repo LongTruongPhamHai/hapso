@@ -337,6 +337,19 @@ class HAPSO:
 
         return gbest_position
 
+    def _pso_fitness(
+        self,
+        particle: tuple[float, float],
+        prev_point: tuple[float, float],
+        next_point: tuple[float, float],
+    ) -> float:
+        return total_fitness(
+            [prev_point, particle, next_point],
+            self.grid_map,
+            self.min_clearance,
+            self.collision_penalty,
+        )
+
     def _stochastic_inertia_weight(self, iter: int) -> float:
         if self.use_siw:
             return self.w_max - (self.w_max - self.w_min) * (
