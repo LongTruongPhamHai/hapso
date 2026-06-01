@@ -1,5 +1,5 @@
-GRID_MAP_HEIGHT: int = 30
-GRID_MAP_WIDTH: int = 51
+GRID_MAP_HEIGHT: int = 15
+GRID_MAP_WIDTH: int = 15
 
 MIN_CLEARANCE: float = 1.0
 MARGIN_CELL: int = 3

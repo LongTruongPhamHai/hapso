@@ -217,7 +217,7 @@ def total_fitness(
     grid_map: GridMap,
     min_clearance: float,
     collision_penalty: float,
-    reference_metrics: dict,
+    reference_metrics: dict | None = None,
 ) -> float:
     total_distance = total_path_length(path)
     avg_angle = average_turning_angle(path)
@@ -227,10 +227,19 @@ def total_fitness(
     if min_dist < min_clearance:
         return collision_penalty
 
-    norm_distance = total_distance / (reference_metrics["distance"] + 1e-6)
-    norm_avg_angle = avg_angle / (reference_metrics["avg_angle"] + 1e-6)
-    norm_max_angle = max_angle / (reference_metrics["max_angle"] + 1e-6)
-    norm_clearance = (1.0 / (min_dist + 1e-6)) / (reference_metrics["clearance"] + 1e-6)
+    if reference_metrics is not None:
+        norm_distance = total_distance / (reference_metrics.get("distance", 1.0) + 1e-6)
+        norm_avg_angle = avg_angle / (reference_metrics.get("avg_angle", 1.0) + 1e-6)
+        norm_max_angle = max_angle / (reference_metrics.get("max_angle", 1.0) + 1e-6)
+        norm_clearance = (1.0 / (min_dist + 1e-6)) / (
+            reference_metrics.get("clearance", 1.0) + 1e-6
+        )
+    else:
+        grid_diagonal = euclidean_distance((0, 0), (grid_map.width, grid_map.height))
+        norm_distance = total_distance / (grid_diagonal + 1e-6)
+        norm_avg_angle = avg_angle / 180.0
+        norm_max_angle = max_angle / 180.0
+        norm_clearance = (1.0 / (min_dist + 1e-6)) * min_clearance
 
     return (
         0.3 * norm_distance

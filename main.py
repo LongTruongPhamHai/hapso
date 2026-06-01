@@ -310,7 +310,7 @@ class App:
         self.running = True
 
         self.mode = "Free"
-        self.selected_algorithm = "HAPSO"
+        self.selected_algorithm = "A-Star"
 
         self.is_dragging = False
         self.start_point: tuple[float, float] | None = None

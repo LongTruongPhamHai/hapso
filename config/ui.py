@@ -1,6 +1,6 @@
 from .parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
 
-GRID_CELL_SIZE: int = 18
+GRID_CELL_SIZE: int = 30
 TEXT_FONT: str = "Consolas"
 
 SMALL_TEXT_SIZE: int = 16
