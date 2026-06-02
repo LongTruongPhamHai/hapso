@@ -1306,6 +1306,7 @@ class App:
                 pygame.draw.rect(self.screen, MEDIUM, preview_rect, 2)
 
         self.draw_coordinate_axes()
+        # self.draw_cell_values()
 
     def draw_coordinate_axes(self) -> None:
         map_width = self.grid_map.width * self.cell_size
@@ -1384,6 +1385,34 @@ class App:
         )
 
         return y_axis_label_width, x_axis_label_height
+
+    def draw_cell_values(self) -> None:
+        font_size = max(15, self.cell_size // 2)
+        font = pygame.font.SysFont("monospace", font_size, bold=True)
+
+        value_colors = {
+            self.grid_map.FREE: BLACK,  # 0 → màu nhạt
+            self.grid_map.OBSTACLE: WHITE,  # 1 → trắng (nền đen)
+            self.grid_map.START: BLACK,  # 2 → trắng (nền xanh lá)
+            self.grid_map.GOAL: BLACK,  # 3 → trắng (nền đỏ)
+        }
+
+        for row in range(self.grid_map.height):
+            for col in range(self.grid_map.width):
+                value = self.grid_map.grid[row][col]
+
+                color = value_colors.get(value, LIGHT)
+                text_surface = font.render(str(value), True, color)
+
+                cell_center_x = (
+                    self.grid_offset_x + col * self.cell_size + self.cell_size // 2
+                )
+                cell_center_y = (
+                    self.grid_offset_y + row * self.cell_size + self.cell_size // 2
+                )
+
+                text_rect = text_surface.get_rect(center=(cell_center_x, cell_center_y))
+                self.screen.blit(text_surface, text_rect)
 
 
 if __name__ == "__main__":
