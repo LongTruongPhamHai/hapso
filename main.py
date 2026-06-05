@@ -16,12 +16,6 @@ from config.colors import (
     INDIGO,
     VIOLET,
 )
-from config.parameter import (
-    GRID_MAP_HEIGHT,
-    GRID_MAP_WIDTH,
-    MIN_CLEARANCE,
-    PSO_COLLISION_PENALTY,
-)
 from config.ui import (
     WINDOW_HEIGHT,
     WINDOW_WIDTH,
@@ -43,13 +37,22 @@ from config.ui import (
     TKINTER_TEXT_FONT,
     TKINTER_TEXT_SIZE,
 )
+from config.parameter import (
+    GRID_MAP_HEIGHT,
+    GRID_MAP_WIDTH,
+    MIN_CLEARANCE,
+    PSO_COLLISION_PENALTY,
+)
 from datetime import datetime
 from grid_map import GridMap
 from hapso import HAPSO
 from openpyxl import Workbook
 from pathlib import Path
+from prm import PRM
+from rrt import RRT
+from rrt_star import RRTStar
 from tkinter import filedialog, messagebox, Tk
-from utils import calculator_path_metrics, print_path_metrics
+from utils import compute_path_metrics, print_path_metrics
 
 import json
 import pygame
@@ -100,14 +103,14 @@ class AlgorithmSelectDialog(tk.Toplevel):
         tk.Label(
             self, text="Choose Solver:", font=(TKINTER_TEXT_FONT, TKINTER_TEXT_SIZE)
         ).pack(pady=10)
-        self.selected_algorithm_index_var = tk.IntVar(value=current_idx)
+        self.selected_algo_var = tk.IntVar(value=current_idx)
 
-        for index, name in enumerate(options):
+        for i, name in enumerate(options):
             tk.Radiobutton(
                 self,
                 text=name,
-                variable=self.selected_algorithm_index_var,
-                value=index,
+                variable=self.selected_algo_var,
+                value=i,
                 font=(TKINTER_TEXT_FONT, TKINTER_TEXT_SIZE),
             ).pack(anchor="w", padx=40)
 
@@ -129,20 +132,20 @@ class AlgorithmSelectDialog(tk.Toplevel):
             font=(TKINTER_TEXT_FONT, TKINTER_TEXT_SIZE),
         ).pack(side=tk.LEFT, padx=5)
 
-        self.center_window()
+        self._center_window()
 
     def on_select(self) -> None:
-        self.result = self.selected_algorithm_index_var.get()
+        self.result = self.selected_algo_var.get()
         self.destroy()
 
-    def center_window(self) -> None:
+    def _center_window(self) -> None:
         self.update_idletasks()
-        width, height = self.winfo_width(), self.winfo_height()
 
-        pos_x = (self.winfo_screenwidth() // 2) - (width // 2)
-        pos_y = (self.winfo_screenheight() // 2) - (height // 2)
+        w, h = self.winfo_width(), self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.winfo_screenheight() // 2) - (h // 2)
 
-        self.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.geometry(f"{w}x{h}+{x}+{y}")
 
 
 class BatchTestDialog(tk.Toplevel):
@@ -186,7 +189,7 @@ class BatchTestDialog(tk.Toplevel):
             font=(TKINTER_TEXT_FONT, TKINTER_TEXT_SIZE),
         ).pack(side=tk.LEFT, padx=5)
 
-        self.center_window()
+        self._center_window()
 
     def on_start(self) -> None:
         try:
@@ -203,14 +206,14 @@ class BatchTestDialog(tk.Toplevel):
         self.result = runs
         self.destroy()
 
-    def center_window(self) -> None:
+    def _center_window(self) -> None:
         self.update_idletasks()
-        width, height = self.winfo_width(), self.winfo_height()
 
-        pos_x = (self.winfo_screenwidth() // 2) - (width // 2)
-        pos_y = (self.winfo_screenheight() // 2) - (height // 2)
+        w, h = self.winfo_width(), self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.winfo_screenheight() // 2) - (h // 2)
 
-        self.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.geometry(f"{w}x{h}+{x}+{y}")
 
 
 class SettingsDialog(tk.Toplevel):
@@ -222,6 +225,7 @@ class SettingsDialog(tk.Toplevel):
         current_cell_size: int,
     ) -> None:
         super().__init__(parent)
+
         self.title("Map Settings")
         self.geometry("300x250")
         self.result = None
@@ -243,6 +247,7 @@ class SettingsDialog(tk.Toplevel):
 
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=20)
+
         tk.Button(btn_frame, text="Apply", command=self.on_apply, width=10).pack(
             side=tk.LEFT, padx=5
         )
@@ -250,7 +255,7 @@ class SettingsDialog(tk.Toplevel):
             side=tk.LEFT, padx=5
         )
 
-        self.center_window()
+        self._center_window()
 
     def on_apply(self) -> None:
         try:
@@ -269,14 +274,14 @@ class SettingsDialog(tk.Toplevel):
         self.result = (width, height, cell_size)
         self.destroy()
 
-    def center_window(self) -> None:
+    def _center_window(self) -> None:
         self.update_idletasks()
-        width, height = self.winfo_width(), self.winfo_height()
 
-        pos_x = (self.winfo_screenwidth() // 2) - (width // 2)
-        pos_y = (self.winfo_screenheight() // 2) - (height // 2)
+        w, h = self.winfo_width(), self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.winfo_screenheight() // 2) - (h // 2)
 
-        self.geometry(f"{width}x{height}+{pos_x}+{pos_y}")
+        self.geometry(f"{w}x{h}+{x}+{y}")
 
 
 class App:
@@ -300,47 +305,39 @@ class App:
         self.width = GRID_MAP_WIDTH
         self.cell_size = GRID_CELL_SIZE
 
-        self.grid_map = GridMap(
-            width=self.width,
-            height=self.height,
-        )
+        self.grid_map = GridMap(width=self.width, height=self.height)
+
         self.min_clearance = MIN_CLEARANCE
         self.collision_penalty = PSO_COLLISION_PENALTY
 
         self.running = True
-
         self.mode = "Free"
         self.selected_algorithm = "A-Star"
 
         self.is_dragging = False
-        self.start_point: tuple[float, float] | None = None
-        self.end_point: tuple[float, float] | None = None
+        self.drag_start: tuple[float, float] | None = None
+        self.drag_end: tuple[float, float] | None = None
         self.current_path: list[tuple[float, float]] | None = None
 
         self.algorithm_names = [
             "RRT",
             "RRT-Star",
             "PRM",
-            "Dijkstra",
             "A-Star",
             "HAPSO",
             "All",
         ]
 
         colors_for_algos = [BLUE, ORANGE, GREEN, VIOLET, INDIGO, YELLOW, RED]
-        self.algorithm_colors: dict[str, tuple[int, int, int]] = {}
-        color_idx = 0
-        for name in self.algorithm_names:
-            if name == "All":
-                continue
-            self.algorithm_colors[name] = colors_for_algos[
-                color_idx % len(colors_for_algos)
-            ]
-            color_idx += 1
+        self.algorithm_colors: dict[str, tuple[int, int, int]] = {
+            name: colors_for_algos[i % len(colors_for_algos)]
+            for i, name in enumerate(self.algorithm_names)
+            if name != "All"
+        }
 
         self.all_paths: dict[str, list[tuple[float, float]]] = {}
 
-        self.recalc_layout()
+        self._recalc_layout()
 
         print(
             f"[INIT] Grid initialized: {self.width}x{self.height} (cell size: {self.cell_size}px)"
@@ -350,10 +347,8 @@ class App:
 
     def run(self) -> None:
         while self.running:
-            self.handle_events()
-
-            self.draw_ui()
-
+            self._handle_events()
+            self._draw_ui()
             self.clock.tick(60)
 
         print("\n[EXIT] Shutting down application...")
@@ -361,121 +356,51 @@ class App:
         self.tk_root.destroy()
         print("[EXIT] Application closed.")
 
-    def handle_events(self) -> None:
+    def _handle_events(self) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
 
             elif event.type == pygame.MOUSEMOTION:
-                self.handle_mouse_motion(event)
+                self._on_mouse_motion(event)
 
             elif event.type == pygame.MOUSEBUTTONUP:
-                self.handle_mouse_up(event)
+                self._on_mouse_up(event)
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                self.handle_mouse_down(event)
+                self._on_mouse_down(event)
 
             elif event.type == pygame.KEYDOWN:
-                self.handle_keydown(event)
+                self._on_keydown(event)
 
-    def handle_mouse_motion(self, event: pygame.event.Event) -> None:
+    def _on_mouse_motion(self, event: pygame.event.Event) -> None:
         if not self.is_dragging:
             return
 
-        grid_pos = self.screen_to_grid(event.pos)
-        if grid_pos is None:
-            return
+        grid_pos = self._screen_to_grid(event.pos)
+        if grid_pos is not None:
+            self.drag_end = grid_pos
 
-        self.end_point = grid_pos
-
-    def screen_to_grid(self, pos: tuple[float, float]) -> tuple[float, float] | None:
-        x, y = pos
-        grid_width = self.grid_map.width * self.cell_size
-        grid_height = self.grid_map.height * self.cell_size
-
-        if (
-            x < self.grid_offset_x
-            or y < self.grid_offset_y
-            or x >= self.grid_offset_x + grid_width
-            or y >= self.grid_offset_y + grid_height
-        ):
-            return None
-
-        grid_x = (x - self.grid_offset_x) // self.cell_size
-        grid_y = (y - self.grid_offset_y) // self.cell_size
-
-        return (grid_x, grid_y)
-
-    def handle_mouse_up(self, event: pygame.event.Event) -> None:
+    def _on_mouse_up(self, event: pygame.event.Event) -> None:
         if event.button != 1:
             return
-
         if (
             self.is_dragging
-            and self.start_point is not None
-            and self.end_point is not None
+            and self.drag_start is not None
+            and self.drag_end is not None
         ):
-            points = self.bresenham_line(self.start_point, self.end_point)
-            self.apply_line(points)
+            pts = self._bresenham_line(self.drag_start, self.drag_end)
+            self._apply_line(pts)
 
         self.is_dragging = False
-        self.start_point = None
-        self.end_point = None
+        self.drag_start = None
+        self.drag_end = None
 
-    def bresenham_line(
-        self,
-        start: tuple[float, float],
-        end: tuple[float, float],
-    ) -> list[tuple[float, float]]:
-        x_start, y_start = start
-        x_end, y_end = end
-        points = []
-
-        delta_x = abs(x_end - x_start)
-        delta_y = abs(y_end - y_start)
-        err = delta_x - delta_y
-
-        step_x = 1 if x_start < x_end else -1
-        step_y = 1 if y_start < y_end else -1
-
-        x, y = x_start, y_start
-        while True:
-            points.append((x, y))
-
-            if x == x_end and y == y_end:
-                break
-
-            e2 = 2 * err
-            if e2 > -delta_y:
-                err -= delta_y
-                x += step_x
-
-            if e2 < delta_x:
-                err += delta_x
-                y += step_y
-
-        return points
-
-    def apply_line(self, points: list[tuple[float, float]]) -> None:
-        if self.mode == "Free":
-            return
-
-        changed = False
-        for x, y in points:
-            if self.mode == "Obstacle":
-                changed = self.grid_map.set_obstacle(x, y, True) or changed
-
-            elif self.mode == "Erase":
-                changed = self.grid_map.set_obstacle(x, y, False) or changed
-
-        if changed:
-            self.current_path = None
-
-    def handle_mouse_down(self, event: pygame.event.Event) -> None:
+    def _on_mouse_down(self, event: pygame.event.Event) -> None:
         if event.button != 1:
             return
 
-        grid_pos = self.screen_to_grid(event.pos)
+        grid_pos = self._screen_to_grid(event.pos)
         if grid_pos is None:
             return
 
@@ -484,20 +409,20 @@ class App:
 
         elif self.mode in ("Obstacle", "Erase"):
             self.is_dragging = True
-            self.start_point = grid_pos
-            self.end_point = grid_pos
+            self.drag_start = grid_pos
+            self.drag_end = grid_pos
 
         elif self.mode == "Start":
             if self.grid_map.set_start(*grid_pos):
                 self.current_path = None
-                self.stop_simulation()
+                self._stop_simulation()
 
         elif self.mode == "Goal":
             if self.grid_map.set_goal(*grid_pos):
                 self.current_path = None
-                self.stop_simulation()
+                self._stop_simulation()
 
-    def handle_keydown(self, event: pygame.event.Event) -> None:
+    def _on_keydown(self, event: pygame.event.Event) -> None:
         if event.key == pygame.K_ESCAPE:
             self.running = False
 
@@ -517,30 +442,98 @@ class App:
             self.mode = "Goal"
 
         elif event.key == pygame.K_c:
-            self.clear_map()
+            self._clear_map()
 
         elif event.key == pygame.K_i:
-            self.import_map()
+            self._import_map()
 
         elif event.key == pygame.K_e:
-            self.export_map()
+            self._export_map()
 
         elif event.key == pygame.K_a:
-            self.open_algo_dialog()
+            self._open_algo_dialog()
 
         elif event.key == pygame.K_SPACE:
-            self.run_selected_algorithm()
+            self._run_selected_algorithm()
 
         elif event.key == pygame.K_r:
-            self.reset_result()
+            self._reset_result()
 
         elif event.key == pygame.K_b:
-            self.open_batch_test_dialog()
+            self._open_batch_test_dialog()
 
         elif event.key == pygame.K_p:
-            self.open_settings_dialog()
+            self._open_settings_dialog()
 
-    def clear_map(self) -> None:
+    def _screen_to_grid(
+        self, screen_pos: tuple[float, float]
+    ) -> tuple[float, float] | None:
+        sx, sy = screen_pos
+        grid_w = self.grid_map.width * self.cell_size
+        grid_h = self.grid_map.height * self.cell_size
+
+        if (
+            sx < self.grid_offset_x
+            or sy < self.grid_offset_y
+            or sx >= self.grid_offset_x + grid_w
+            or sy >= self.grid_offset_y + grid_h
+        ):
+            return None
+
+        grid_x = (sx - self.grid_offset_x) // self.cell_size
+        grid_y = (sy - self.grid_offset_y) // self.cell_size
+
+        return (grid_x, grid_y)
+
+    def _bresenham_line(
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+    ) -> list[tuple[float, float]]:
+        x0, y0 = start
+        x1, y1 = end
+        points = []
+
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        err = dx - dy
+
+        step_x = 1 if x0 < x1 else -1
+        step_y = 1 if y0 < y1 else -1
+
+        x, y = x0, y0
+        while True:
+            points.append((x, y))
+            if x == x1 and y == y1:
+                break
+
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x += step_x
+
+            if e2 < dx:
+                err += dx
+                y += step_y
+
+        return points
+
+    def _apply_line(self, points: list[tuple[float, float]]) -> None:
+        if self.mode == "Free":
+            return
+
+        changed = False
+        for x, y in points:
+            if self.mode == "Obstacle":
+                changed = self.grid_map.set_obstacle(x, y, True) or changed
+
+            elif self.mode == "Erase":
+                changed = self.grid_map.set_obstacle(x, y, False) or changed
+
+        if changed:
+            self.current_path = None
+
+    def _clear_map(self) -> None:
         self.grid_map.grid = [
             [GridMap.FREE for _ in range(self.grid_map.width)]
             for _ in range(self.grid_map.height)
@@ -549,16 +542,17 @@ class App:
         self.grid_map.start = None
         self.grid_map.goal = None
         self.current_path = None
-        self.stop_simulation()
+
+        self._stop_simulation()
         print("[MAP] Map cleared")
 
-    def reset_result(self) -> None:
+    def _reset_result(self) -> None:
         self.current_path = None
-        self.stop_simulation()
+        self._stop_simulation()
         print("[RUN] Result reset")
 
-    def import_map(self) -> None:
-        path = self.ask_open_path()
+    def _import_map(self) -> None:
+        path = self._ask_open_path()
         if not path:
             print("[IMPORT] Cancelled")
             return
@@ -569,10 +563,10 @@ class App:
             return
 
         try:
-            with file_path.open("r", encoding="utf-8") as file:
-                data = json.load(file)
+            with file_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
 
-            loaded = self.grid_map_from_dict(data)
+            loaded = self._dict_to_grid_map(data)
             if loaded is None:
                 print("[IMPORT] ERROR - Invalid map data")
                 return
@@ -580,8 +574,8 @@ class App:
             self.grid_map = loaded
             self.current_path = None
             self.all_paths = {}
-            self.stop_simulation()
-            self.recalc_layout()
+            self._stop_simulation()
+            self._recalc_layout()
 
             print(
                 f"[IMPORT] SUCCESS - Map loaded: {self.grid_map.width}x{self.grid_map.height}"
@@ -595,11 +589,33 @@ class App:
         except Exception as e:
             print(f"[IMPORT] ERROR - {str(e)}")
 
-    def ask_open_path(self) -> str:
+    def _export_map(self) -> None:
+        if self.grid_map.start is None or self.grid_map.goal is None:
+            print("[EXPORT] ERROR - Start and goal positions must be set")
+            return
+
+        try:
+            base_dir = Path("data/maps")
+            base_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = self._ask_save_path(str(base_dir))
+            if not filename:
+                print("[EXPORT] Cancelled")
+                return
+
+            with open(filename, "w", encoding="utf-8") as f:
+                json.dump(self._grid_map_to_dict(self.grid_map), f, indent=2)
+
+            print(f"[EXPORT] SUCCESS - Map saved to: {filename}")
+            print(f"[EXPORT] Map size: {self.grid_map.width}x{self.grid_map.height}")
+
+        except Exception as e:
+            print(f"[EXPORT] ERROR - {str(e)}")
+
+    def _ask_open_path(self) -> str:
         root = Tk()
         root.withdraw()
         root.attributes("-topmost", True)
-
         try:
             return filedialog.askopenfilename(
                 parent=root,
@@ -610,53 +626,10 @@ class App:
         finally:
             root.destroy()
 
-    def grid_map_from_dict(self, data: dict) -> GridMap | None:
-        if not isinstance(data, dict):
-            return None
-
-        if "width" not in data or "height" not in data or "grid" not in data:
-            return None
-
-        try:
-            grid_map = GridMap(data["width"], data["height"])
-            grid_map.grid = data["grid"]
-            grid_map.rebuild_obstacle_set()
-            grid_map.start = tuple(data["start"]) if data.get("start") else None
-            grid_map.goal = tuple(data["goal"]) if data.get("goal") else None
-
-            return grid_map
-
-        except (TypeError, ValueError):
-            return None
-
-    def export_map(self) -> None:
-        if self.grid_map.start is None or self.grid_map.goal is None:
-            print("[EXPORT] ERROR - Start and goal positions must be set")
-            return
-
-        try:
-            base_dir = Path("data/maps")
-            base_dir.mkdir(parents=True, exist_ok=True)
-
-            filename = self.ask_save_path(str(base_dir))
-            if not filename:
-                print("[EXPORT] Cancelled")
-                return
-
-            with open(filename, "w", encoding="utf-8") as file:
-                json.dump(self.grid_map_to_dict(self.grid_map), file, indent=2)
-
-            print(f"[EXPORT] SUCCESS - Map saved to: {filename}")
-            print(f"[EXPORT] Map size: {self.grid_map.width}x{self.grid_map.height}")
-
-        except Exception as e:
-            print(f"[EXPORT] ERROR - {str(e)}")
-
-    def ask_save_path(self, initial_dir: str = "") -> str:
+    def _ask_save_path(self, initial_dir: str = "") -> str:
         root = Tk()
         root.withdraw()
         root.attributes("-topmost", True)
-
         try:
             return filedialog.asksaveasfilename(
                 parent=root,
@@ -669,7 +642,25 @@ class App:
         finally:
             root.destroy()
 
-    def grid_map_to_dict(self, grid_map: GridMap) -> dict:
+    def _dict_to_grid_map(self, data: dict) -> GridMap | None:
+        if not isinstance(data, dict):
+            return None
+
+        if "width" not in data or "height" not in data or "grid" not in data:
+            return None
+
+        try:
+            gm = GridMap(data["width"], data["height"])
+            gm.grid = data["grid"]
+            gm.rebuild_obstacle_set()
+            gm.start = tuple(data["start"]) if data.get("start") else None
+            gm.goal = tuple(data["goal"]) if data.get("goal") else None
+            return gm
+
+        except (TypeError, ValueError):
+            return None
+
+    def _grid_map_to_dict(self, grid_map: GridMap) -> dict:
         return {
             "width": grid_map.width,
             "height": grid_map.height,
@@ -678,7 +669,7 @@ class App:
             "goal": grid_map.goal,
         }
 
-    def open_algo_dialog(self) -> None:
+    def _open_algo_dialog(self) -> None:
         dialog = AlgorithmSelectDialog(
             self.tk_root,
             self.algorithm_names.index(self.selected_algorithm),
@@ -690,7 +681,7 @@ class App:
             self.selected_algorithm = self.algorithm_names[dialog.result]
             print(f"[MENU] Algorithm selected: {self.selected_algorithm}")
 
-    def run_selected_algorithm(self) -> None:
+    def _run_selected_algorithm(self) -> None:
         if self.grid_map.start is None or self.grid_map.goal is None:
             print("[ALGORITHM] ERROR - Start and goal positions must be set")
             return
@@ -700,63 +691,82 @@ class App:
         print(f"[ALGORITHM] Running: {self.selected_algorithm}")
         print(f"[ALGORITHM] Start: {self.grid_map.start}, Goal: {self.grid_map.goal}")
 
-        start_time = time.perf_counter()
+        t_start = time.perf_counter()
 
         if self.selected_algorithm != "All":
             self.all_paths = {}
 
         match self.selected_algorithm:
+            case "RRT":
+                self.current_path = RRT(self.grid_map).plan()
+                self._stop_simulation()
+
+            case "RRT-Star":
+                self.current_path = RRTStar(self.grid_map).plan()
+                self._stop_simulation()
+
+            case "PRM":
+                self.current_path = PRM(self.grid_map).plan()
+                self._stop_simulation()
+
             case "A-Star":
-                planner = Astar(self.grid_map)
-                self.current_path = planner.plan()
-                self.stop_simulation()
+                self.current_path = Astar(self.grid_map).plan()
+                self._stop_simulation()
 
             case "HAPSO":
-                planner = HAPSO(self.grid_map)
-                self.current_path = planner.plan()
-                self.stop_simulation()
+                self.current_path = HAPSO(self.grid_map).plan()
+                self._stop_simulation()
 
             case "All":
                 self.all_paths = {}
                 self.all_path_metrics = {}
+
                 for name in self.algorithm_names:
                     if name == "All":
                         continue
 
                     print(f"[ALGORITHM:All] Running: {name}")
 
-                    if name == "A-Star":
+                    if name == "RRT":
+                        planner = RRT(self.grid_map)
+
+                    elif name == "RRT-Star":
+                        planner = RRTStar(self.grid_map)
+
+                    elif name == "PRM":
+                        planner = PRM(self.grid_map)
+
+                    elif name == "A-Star":
                         planner = Astar(self.grid_map)
-                        algo_start_time = time.perf_counter()
-                        path = planner.plan()
+
                     elif name == "HAPSO":
                         planner = HAPSO(self.grid_map)
-                        algo_start_time = time.perf_counter()
-                        path = planner.plan()
-                    else:
-                        path = None
-                        algo_start_time = time.perf_counter()
 
-                    algo_elapsed_time = time.perf_counter() - algo_start_time
+                    else:
+                        self.all_paths[name] = []
+                        continue
+
+                    algo_t_start = time.perf_counter()
+                    path = planner.plan()
+                    algo_elapsed = time.perf_counter() - algo_t_start
 
                     self.all_paths[name] = path or []
-                    if not hasattr(self, "all_path_metrics"):
-                        self.all_path_metrics = {}
                     self.all_path_metrics[name] = {
-                        **calculator_path_metrics(
+                        **compute_path_metrics(
                             path or [],
                             name,
                             self.grid_map,
                             self.min_clearance,
                             self.collision_penalty,
                         )[name],
-                        "Execution time": algo_elapsed_time,
+                        "Execution time (s)": algo_elapsed,
                     }
 
                 self.current_path = None
-                self.stop_simulation()
+                self._stop_simulation()
 
-        elapsed_time = time.perf_counter() - start_time
+        elapsed = time.perf_counter() - t_start
+
         if self.selected_algorithm == "All":
             print_path_metrics(self.all_path_metrics)
             print("[ALGORITHM:All] Completed all planners")
@@ -766,43 +776,31 @@ class App:
                 print(
                     f"[ALGORITHM] SUCCESS | Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 )
-
                 print(f"[ALGORITHM] PATH: {self.current_path}")
 
-                path_metrics = calculator_path_metrics(
+                metrics = compute_path_metrics(
                     self.current_path,
                     self.selected_algorithm,
                     self.grid_map,
                     self.min_clearance,
                     self.collision_penalty,
                 )[self.selected_algorithm]
-                path_metrics["Execution time"] = elapsed_time
-
-                print_path_metrics({self.selected_algorithm: path_metrics})
+                metrics["Execution time"] = elapsed
+                print_path_metrics({self.selected_algorithm: metrics})
 
             else:
                 print(
                     f"[ALGORITHM] FAILED - No path found | Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 )
-                print(f"[ALGORITHM] Execution time: {elapsed_time:.4f}s")
+                print(f"[ALGORITHM] Execution time: {elapsed:.4f}s")
 
-    def start_simulation(self, trace: list[tuple]) -> None:
-        return
-
-    def stop_simulation(self) -> None:
-        return
-
-    def update_simulation(self) -> None:
-        return
-
-    def open_batch_test_dialog(self) -> None:
+    def _open_batch_test_dialog(self) -> None:
         dialog = BatchTestDialog(self.tk_root)
         self.tk_root.wait_window(dialog)
-
         if dialog.result is not None:
-            self.batch_test(dialog.result)
+            self._batch_test(dialog.result)
 
-    def batch_test(self, run_count: int = 10) -> None:
+    def _batch_test(self, run_count: int = 10) -> None:
         if self.grid_map.start is None or self.grid_map.goal is None:
             print("[BATCH] ERROR - Start and goal positions must be set")
             messagebox.showwarning("Batch Test", "Please set start and goal first.")
@@ -827,63 +825,67 @@ class App:
         total_time = 0.0
         path_lengths = []
         fitness_values = []
-        run_records: list[dict[str, object]] = []
-        best_run: dict[str, object] | None = None
+        run_records: list[dict] = []
+        best_run: dict | None = None
+
         output_dir = Path(__file__).resolve().parent / "data" / "result_batch_test"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        for i in range(run_count):
+        for run_idx in range(run_count):
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     print("[BATCH] Quit requested during batch test. Stopping.")
                     self.running = False
                     break
+
                 elif ev.type == pygame.KEYDOWN:
                     try:
-                        self.handle_keydown(ev)
+                        self._on_keydown(ev)
+
                     except Exception:
                         pass
+
             if not self.running:
                 break
 
-            print(f"[BATCH] Run {i+1}/{run_count}...", end=" ", flush=True)
-            start_time = time.perf_counter()
-            self.run_selected_algorithm()
-            run_time = time.perf_counter() - start_time
+            print(f"[BATCH] Run {run_idx+1}/{run_count}...", end=" ", flush=True)
+            t0 = time.perf_counter()
+            self._run_selected_algorithm()
+            run_time = time.perf_counter() - t0
             total_time += run_time
 
-            current_path = list(self.current_path) if self.current_path else []
-            is_success = bool(current_path) and current_path[-1] == self.grid_map.goal
+            curr_path = list(self.current_path) if self.current_path else []
+            is_success = bool(curr_path) and curr_path[-1] == self.grid_map.goal
 
             if is_success:
                 successful_runs += 1
-                path_length = len(current_path)
-                path_lengths.append(path_length)
+                path_len = len(curr_path)
+                path_lengths.append(path_len)
 
-                path_metrics = calculator_path_metrics(
-                    current_path,
+                metrics = compute_path_metrics(
+                    curr_path,
                     self.selected_algorithm,
                     self.grid_map,
                     self.min_clearance,
                     self.collision_penalty,
                 )[self.selected_algorithm]
-                fitness = path_metrics["TOTAL FITNESS"]
+                fitness = metrics["TOTAL FITNESS"]
                 fitness_values.append(fitness)
 
-                run_record = {
-                    "Run_ID": i + 1,
+                record = {
+                    "Run_ID": run_idx + 1,
                     "Success": True,
-                    "Path_Length": path_length,
-                    "Total_Distance": path_metrics["Total distance"],
-                    "Total_Waypoint": path_metrics["Total waypoint"],
-                    "Total_Angle": path_metrics["Total angle"],
-                    "Min_Angle": path_metrics["Min angle"],
-                    "Max_Angle": path_metrics["Max angle"],
-                    "Average_Angle": path_metrics["Average angle"],
-                    "Min_Clearance": path_metrics["Min clearance"],
+                    "Path_Length": path_len,
+                    "Total_Distance": metrics["Total distance"],
+                    "Total_Waypoint": metrics["Total waypoint"],
+                    "Total_Angle": metrics["Total angle"],
+                    "Min_Angle": metrics["Min angle"],
+                    "Max_Angle": metrics["Max angle"],
+                    "Average_Angle": metrics["Average angle"],
+                    "Min_Clearance": metrics["Min clearance"],
                     "TOTAL_FITNESS": fitness,
                     "Execution_Time_s": run_time,
-                    "Path": json.dumps(current_path),
+                    "Path": json.dumps(curr_path),
                 }
 
                 if (
@@ -891,14 +893,14 @@ class App:
                     or fitness < best_run["TOTAL_FITNESS"]
                     or (
                         fitness == best_run["TOTAL_FITNESS"]
-                        and path_length < best_run["Path_Length"]
+                        and path_len < best_run["Path_Length"]
                     )
                 ):
-                    best_run = {**run_record, "path": current_path}
+                    best_run = {**record, "path": curr_path}
 
             else:
-                run_record = {
-                    "Run_ID": i + 1,
+                record = {
+                    "Run_ID": run_idx + 1,
                     "Success": False,
                     "Path_Length": 0,
                     "Total_Distance": None,
@@ -909,42 +911,43 @@ class App:
                     "Average_Angle": None,
                     "Min_Clearance": None,
                     "TOTAL_FITNESS": None,
-                    "Execution_Time": run_time,
+                    "Execution_Time_s": run_time,
                     "Path": "",
                 }
                 print(f"No valid path found ({run_time:.4f}s)")
 
-            run_records.append(run_record)
+            run_records.append(record)
 
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     print("[BATCH] Quit requested after run. Stopping.")
                     self.running = False
                     break
+
                 elif ev.type == pygame.KEYDOWN:
                     try:
-                        self.handle_keydown(ev)
+                        self._on_keydown(ev)
+
                     except Exception:
                         pass
+
             if not self.running:
                 break
 
-        avg_length = sum(path_lengths) / len(path_lengths) if path_lengths else 0.0
+        avg_len = sum(path_lengths) / len(path_lengths) if path_lengths else 0.0
         avg_time = total_time / run_count if run_count else 0.0
+
         avg_fitness = (
             sum(fitness_values) / len(fitness_values) if fitness_values else 0.0
         )
 
-        if best_run is not None:
-            self.current_path = list(best_run["path"])
-        else:
-            self.current_path = None
+        self.current_path = list(best_run["path"]) if best_run else None
 
-        workbook = Workbook()
-        results_sheet = workbook.active
-        results_sheet.title = "Results"
+        wb = Workbook()
+        ws_results = wb.active
+        ws_results.title = "Results"
 
-        results_headers = [
+        result_cols = [
             "Run_ID",
             "Success",
             "Path_Length",
@@ -956,178 +959,156 @@ class App:
             "Average_Angle",
             "Min_Clearance",
             "TOTAL_FITNESS",
-            "Execution_Time",
+            "Execution_Time_s",
             "Path",
         ]
+        ws_results.append(result_cols)
+        for rec in run_records:
+            ws_results.append([rec.get(col) for col in result_cols])
 
-        results_sheet.append(results_headers)
-        for record in run_records:
-            results_sheet.append([record.get(column) for column in results_headers])
-
-        summary_sheet = workbook.create_sheet("Summary")
-        summary_rows = [
+        ws_summary = wb.create_sheet("Summary")
+        ws_summary.append(["Metric", "Value"])
+        for row in [
             ("Algorithm", self.selected_algorithm),
             ("Total runs", run_count),
             ("Successful runs", successful_runs),
             ("Success rate", successful_runs / run_count if run_count else 0.0),
-            ("Average path length", avg_length),
+            ("Average path length", avg_len),
             ("Average fitness", avg_fitness),
             ("Average time (s)", avg_time),
             ("Total time (s)", total_time),
-            (
-                "Best run",
-                best_run["Run_ID"] if best_run is not None else "N/A",
-            ),
-            (
-                "Best fitness",
-                best_run["TOTAL_FITNESS"] if best_run is not None else "N/A",
-            ),
-            (
-                "Best path length",
-                best_run["Path_Length"] if best_run is not None else "N/A",
-            ),
-        ]
-        summary_sheet.append(["Metric", "Value"])
-        for metric_name, metric_value in summary_rows:
-            summary_sheet.append([metric_name, metric_value])
+            ("Best run", best_run["Run_ID"] if best_run else "N/A"),
+            ("Best fitness", best_run["TOTAL_FITNESS"] if best_run else "N/A"),
+            ("Best path length", best_run["Path_Length"] if best_run else "N/A"),
+        ]:
+            ws_summary.append(list(row))
 
         algo_safe = "".join(
-            [
-                c if (c.isalnum() or c in (" ", "_")) else "_"
-                for c in self.selected_algorithm
-            ]
+            c if (c.isalnum() or c in " _") else "_" for c in self.selected_algorithm
         ).replace(" ", "_")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = output_dir / f"{timestamp}_{algo_safe}.xlsx"
-        workbook.save(output_file)
+        out_file = output_dir / f"{timestamp}_{algo_safe}.xlsx"
+        wb.save(out_file)
 
         print(f"{'='*60}")
         print(f"[BATCH] Results:")
-        print(f"[BATCH]   Total runs: {run_count}")
-        print(f"[BATCH]   Successful: {successful_runs}/{run_count}")
-        print(f"[BATCH]   Success rate: {successful_runs/run_count*100:.1f}%")
-        print(f"[BATCH]   Avg path length: {avg_length:.2f} waypoints")
-        print(f"[BATCH]   Avg fitness: {avg_fitness:.4f}")
-        print(f"[BATCH]   Avg time: {avg_time:.4f}s")
-        print(f"[BATCH]   Total time: {total_time:.4f}s")
-        print(f"[BATCH]   Excel: {output_file}")
-        if best_run is not None:
+        print(f"[BATCH]   Total runs:        {run_count}")
+        print(f"[BATCH]   Successful:        {successful_runs}/{run_count}")
+        print(f"[BATCH]   Success rate:      {successful_runs/run_count*100:.1f}%")
+        print(f"[BATCH]   Avg path length:   {avg_len:.2f} waypoints")
+        print(f"[BATCH]   Avg fitness:       {avg_fitness:.4f}")
+        print(f"[BATCH]   Avg time:          {avg_time:.4f}s")
+        print(f"[BATCH]   Total time:        {total_time:.4f}s")
+        print(f"[BATCH]   Excel:             {out_file}")
+
+        if best_run:
             print(
                 f"[BATCH]   Best run: {best_run['Run_ID']} | Fitness = {best_run['TOTAL_FITNESS']:.4f}"
             )
         print(f"{'='*60}\n")
 
-        if best_run is not None:
-            message_text = (
+        msg = (
+            (
                 f"Runs: {run_count}\n"
                 f"Success: {successful_runs}/{run_count}\n"
-                f"Avg path length: {avg_length:.2f}\n"
+                f"Avg path length: {avg_len:.2f}\n"
                 f"Avg fitness: {avg_fitness:.4f}\n"
                 f"Avg time: {avg_time:.4f} s\n"
                 f"Best run: {best_run['Run_ID']}\n"
-                f"Excel: {output_file}"
+                f"Excel: {out_file}"
             )
-        else:
-            message_text = (
-                f"Runs: {run_count}\n"
-                f"No valid path was found.\n"
-                f"Excel: {output_file}"
-            )
-
-        messagebox.showinfo("Batch Test", message_text)
+            if best_run
+            else (f"Runs: {run_count}\nNo valid path was found.\nExcel: {out_file}")
+        )
+        messagebox.showinfo("Batch Test", msg)
 
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
-                print("[BATCH] Quit requested after dialog. Exiting.")
                 self.running = False
+
             elif ev.type == pygame.KEYDOWN:
                 try:
-                    self.handle_keydown(ev)
+                    self._on_keydown(ev)
+
                 except Exception:
                     pass
 
-    def open_settings_dialog(self) -> None:
+    def _stop_simulation(self) -> None:
+        return
+
+    def _open_settings_dialog(self) -> None:
         dialog = SettingsDialog(
-            self.tk_root,
-            GRID_MAP_WIDTH,
-            GRID_MAP_HEIGHT,
-            GRID_CELL_SIZE,
+            self.tk_root, GRID_MAP_WIDTH, GRID_MAP_HEIGHT, GRID_CELL_SIZE
         )
 
         self.tk_root.wait_window(dialog)
         if dialog.result:
             width, height, cell_size = dialog.result
-            self.resize_grid(width, height, cell_size)
+            self._resize_grid(width, height, cell_size)
 
-    def recalc_layout(self) -> None:
-        map_width = self.grid_map.width * self.cell_size
-        map_height = self.grid_map.height * self.cell_size
+    def _recalc_layout(self) -> None:
+        map_w = self.grid_map.width * self.cell_size
+        map_h = self.grid_map.height * self.cell_size
 
-        available_width = WINDOW_WIDTH - NAV_WIDTH
-        available_height = WINDOW_HEIGHT - MODE_HEIGHT
+        avail_w = WINDOW_WIDTH - NAV_WIDTH
+        avail_h = WINDOW_HEIGHT - MODE_HEIGHT
 
-        y_axis_label_width, x_axis_label_height = self._get_coordinate_axis_margins()
-        axis_gap = 8
+        axis_label_w, axis_label_h = self._axis_label_margins()
+        gap = 8
 
-        total_content_width = map_width + y_axis_label_width + axis_gap
-        total_content_height = map_height + x_axis_label_height + axis_gap
+        content_w = map_w + axis_label_w + gap
+        content_h = map_h + axis_label_h + gap
 
-        start_x = NAV_WIDTH + max(0, (available_width - total_content_width) // 2)
-        start_y = MODE_HEIGHT + max(0, (available_height - total_content_height) // 2)
+        origin_x = NAV_WIDTH + max(0, (avail_w - content_w) // 2)
+        origin_y = MODE_HEIGHT + max(0, (avail_h - content_h) // 2)
 
-        self.grid_offset_x = start_x + y_axis_label_width + axis_gap
-        self.grid_offset_y = start_y + x_axis_label_height + axis_gap
+        self.grid_offset_x = origin_x + axis_label_w + gap
+        self.grid_offset_y = origin_y + axis_label_h + gap
 
-    def resize_grid(self, width: int, height: int, cell_size: int) -> None:
+    def _resize_grid(self, width: int, height: int, cell_size: int) -> None:
         self.width = width
         self.height = height
         self.cell_size = cell_size
-
         self.grid_map.resize(width=self.width, height=self.height)
         self.current_path = None
         self.all_paths = {}
-        self.stop_simulation()
+        self._stop_simulation()
+        self._recalc_layout()
 
-        self.recalc_layout()
-
-    def draw_ui(self) -> None:
+    def _draw_ui(self) -> None:
         self.screen.fill(WHITE)
-
-        self.draw_nav_side()
-        self.draw_status_bar()
-        self.draw_grid_map()
-
+        self._draw_nav_panel()
+        self._draw_status_bar()
+        self._draw_grid()
         pygame.display.flip()
 
-    def draw_nav_side(self) -> None:
-        nav_side = (0, 0, NAV_WIDTH, NAV_HEIGHT)
-        pygame.draw.rect(self.screen, WHITE, nav_side)
+    def _draw_nav_panel(self) -> None:
+        pygame.draw.rect(self.screen, WHITE, (0, 0, NAV_WIDTH, NAV_HEIGHT))
         pygame.draw.line(self.screen, BLACK, (NAV_WIDTH, 0), (NAV_WIDTH, NAV_HEIGHT), 2)
 
-        nav_title = Text(
+        Text(
             self.screen, NAV_OFFSET_X, NAV_OFFSET_Y, BLACK, "MENU", size=LARGE_TEXT_SIZE
-        )
-        nav_title.draw_text()
+        ).draw_text()
 
-        nav_menu = NAV_MENU
-        y_offset = NAV_OFFSET_Y + 40
-        for menu in nav_menu:
-            text = Text(self.screen, NAV_OFFSET_X, y_offset, BLACK, menu)
-            text.draw_text()
+        y = NAV_OFFSET_Y + 40
+        for item in NAV_MENU:
+            Text(self.screen, NAV_OFFSET_X, y, BLACK, item).draw_text()
+            y += 30
 
-            y_offset += 30
-
-    def draw_status_bar(self) -> None:
-        mode_text = Text(
+    def _draw_status_bar(self) -> None:
+        Text(
             self.screen,
             MODE_OFFSET_X,
             MODE_OFFSET_Y,
             BLACK,
             f"Mode: {self.mode} | Alg: {self.selected_algorithm}",
-        )
-        mode_text.draw_text()
+        ).draw_text()
         pygame.draw.line(
-            self.screen, BLACK, (NAV_WIDTH, MODE_HEIGHT), (WINDOW_WIDTH, MODE_HEIGHT), 2
+            self.screen,
+            BLACK,
+            (NAV_WIDTH, MODE_HEIGHT),
+            (WINDOW_WIDTH, MODE_HEIGHT),
+            2,
         )
 
         try:
@@ -1136,39 +1117,37 @@ class App:
                 for name in self.algorithm_names
                 if name in self.algorithm_colors
             ]
+            if not legend_items:
+                return
 
-            if legend_items:
-                padding = 4
-                legend_font = pygame.font.SysFont(TEXT_FONT, SMALL_TEXT_SIZE)
-                box_size = SMALL_TEXT_SIZE - 4
-                item_h = SMALL_TEXT_SIZE
+            pad = 4
+            lgd_font = pygame.font.SysFont(TEXT_FONT, SMALL_TEXT_SIZE)
+            box_sz = SMALL_TEXT_SIZE - 4
 
-                total_w = padding
-                for name, _ in legend_items:
-                    total_w += box_size + 4 + legend_font.size(name)[0] + padding
+            total_w = pad
+            for name, _ in legend_items:
+                total_w += box_sz + 4 + lgd_font.size(name)[0] + pad
 
-                legend_h = box_size + padding * 2
-                legend_top = (MODE_HEIGHT - legend_h) // 2
-                legend_left = WINDOW_WIDTH - total_w - 10
+            lgd_h = box_sz + pad * 2
+            lgd_top = (MODE_HEIGHT - lgd_h) // 2
+            lgd_left = WINDOW_WIDTH - total_w - 10
 
-                legend_surf = pygame.Surface((total_w, legend_h), pygame.SRCALPHA)
-                legend_surf.fill((255, 255, 255, 180))
-                self.screen.blit(legend_surf, (legend_left, legend_top))
+            surf = pygame.Surface((total_w, lgd_h), pygame.SRCALPHA)
+            surf.fill((255, 255, 255, 180))
+            self.screen.blit(surf, (lgd_left, lgd_top))
 
-                x_cursor = legend_left + padding
-                y_item = legend_top + padding
-                for name, color in legend_items:
-                    pygame.draw.rect(
-                        self.screen, color, (x_cursor, y_item, box_size, box_size)
-                    )
-                    label_surf = legend_font.render(name, True, BLACK)
-                    self.screen.blit(label_surf, (x_cursor + box_size + 4, y_item))
-                    x_cursor += box_size + 4 + legend_font.size(name)[0] + padding
+            cx = lgd_left + pad
+            cy = lgd_top + pad
+            for name, color in legend_items:
+                pygame.draw.rect(self.screen, color, (cx, cy, box_sz, box_sz))
+                label = lgd_font.render(name, True, BLACK)
+                self.screen.blit(label, (cx + box_sz + 4, cy))
+                cx += box_sz + 4 + lgd_font.size(name)[0] + pad
 
         except Exception:
             pass
 
-    def draw_grid_map(self) -> None:
+    def _draw_grid(self) -> None:
         for row in range(self.grid_map.height):
             for col in range(self.grid_map.width):
                 rect = (
@@ -1177,29 +1156,16 @@ class App:
                     self.cell_size,
                     self.cell_size,
                 )
+                val = self.grid_map.grid[row][col]
 
-                value = self.grid_map.grid[row][col]
-
-                if value == self.grid_map.OBSTACLE:
+                if val == GridMap.OBSTACLE:
                     pygame.draw.rect(self.screen, BLACK, rect)
 
-                elif value == self.grid_map.START:
+                elif val == GridMap.START:
                     pygame.draw.rect(self.screen, GREEN, rect)
-                    # pygame.draw.circle(
-                    #     self.screen,
-                    #     WHITE,
-                    #     (rect[0] + self.cell_size // 2, rect[1] + self.cell_size // 2),
-                    #     self.cell_size // 5,
-                    # )
 
-                elif value == self.grid_map.GOAL:
+                elif val == GridMap.GOAL:
                     pygame.draw.rect(self.screen, RED, rect)
-                    # pygame.draw.circle(
-                    #     self.screen,
-                    #     WHITE,
-                    #     (rect[0] + self.cell_size // 2, rect[1] + self.cell_size // 2),
-                    #     self.cell_size // 5,
-                    # )
 
                 else:
                     pygame.draw.rect(self.screen, WHITE, rect)
@@ -1207,212 +1173,144 @@ class App:
                 pygame.draw.rect(self.screen, LIGHT, rect, 1)
 
         if self.selected_algorithm == "All" and self.all_paths:
-            for name, path_points in self.all_paths.items():
-                if not path_points or len(path_points) <= 1:
+            for name, pts in self.all_paths.items():
+                if not pts or len(pts) <= 1:
                     continue
 
                 color = self.algorithm_colors.get(name, BLUE)
-                for index in range(len(path_points) - 1):
-                    x_start, y_start = path_points[index]
-                    x_end, y_end = path_points[index + 1]
-
-                    start_x = (
-                        self.grid_offset_x
-                        + x_start * self.cell_size
-                        + self.cell_size // 2
-                    )
-                    start_y = (
-                        self.grid_offset_y
-                        + y_start * self.cell_size
-                        + self.cell_size // 2
-                    )
-
-                    end_x = (
-                        self.grid_offset_x
-                        + x_end * self.cell_size
-                        + self.cell_size // 2
-                    )
-                    end_y = (
-                        self.grid_offset_y
-                        + y_end * self.cell_size
-                        + self.cell_size // 2
-                    )
-
-                    pygame.draw.line(
-                        self.screen, color, (start_x, start_y), (end_x, end_y), 2
-                    )
+                self._draw_path_lines(pts, color)
 
         else:
-            path_points = self.current_path or []
+            pts = self.current_path or []
+            if pts and len(pts) > 1:
+                self._draw_path_lines(pts, BLUE)
 
-            if path_points and len(path_points) > 1:
-                for index in range(len(path_points) - 1):
-                    x_start, y_start = path_points[index]
-                    x_end, y_end = path_points[index + 1]
-
-                    start_x = (
-                        self.grid_offset_x
-                        + x_start * self.cell_size
-                        + self.cell_size // 2
-                    )
-                    start_y = (
-                        self.grid_offset_y
-                        + y_start * self.cell_size
-                        + self.cell_size // 2
-                    )
-
-                    end_x = (
-                        self.grid_offset_x
-                        + x_end * self.cell_size
-                        + self.cell_size // 2
-                    )
-                    end_y = (
-                        self.grid_offset_y
-                        + y_end * self.cell_size
-                        + self.cell_size // 2
-                    )
-
-                    pygame.draw.line(
-                        self.screen, BLUE, (start_x, start_y), (end_x, end_y), 2
-                    )
-
-            node_radius = max(3, self.cell_size // 6)
-            for x, y in path_points:
-                center_x = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
-                center_y = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
-
-                pygame.draw.circle(self.screen, BLUE, (center_x, center_y), node_radius)
-
-                pygame.draw.circle(
-                    self.screen,
-                    WHITE,
-                    (center_x, center_y),
-                    max(1, node_radius - 2),
-                )
+            # self._draw_path_nodes(pts, BLUE)
 
         if (
             self.is_dragging
-            and self.start_point is not None
-            and self.end_point is not None
+            and self.drag_start is not None
+            and self.drag_end is not None
         ):
-            for x, y in self.bresenham_line(self.start_point, self.end_point):
-                preview_rect = (
-                    self.grid_offset_x + x * self.cell_size,
-                    self.grid_offset_y + y * self.cell_size,
-                    self.cell_size,
-                    self.cell_size,
+            for x, y in self._bresenham_line(self.drag_start, self.drag_end):
+                pygame.draw.rect(
+                    self.screen,
+                    MEDIUM,
+                    (
+                        self.grid_offset_x + x * self.cell_size,
+                        self.grid_offset_y + y * self.cell_size,
+                        self.cell_size,
+                        self.cell_size,
+                    ),
+                    2,
                 )
 
-                pygame.draw.rect(self.screen, MEDIUM, preview_rect, 2)
+        self._draw_axes()
 
-        self.draw_coordinate_axes()
-        # self.draw_cell_values()
+    def _draw_path_lines(
+        self,
+        pts: list[tuple[float, float]],
+        color: tuple[int, int, int],
+    ) -> None:
+        for i in range(len(pts) - 1):
+            sx = self.grid_offset_x + pts[i][0] * self.cell_size + self.cell_size // 2
+            sy = self.grid_offset_y + pts[i][1] * self.cell_size + self.cell_size // 2
+            ex = (
+                self.grid_offset_x
+                + pts[i + 1][0] * self.cell_size
+                + self.cell_size // 2
+            )
+            ey = (
+                self.grid_offset_y
+                + pts[i + 1][1] * self.cell_size
+                + self.cell_size // 2
+            )
 
-    def draw_coordinate_axes(self) -> None:
-        map_width = self.grid_map.width * self.cell_size
-        map_height = self.grid_map.height * self.cell_size
-        y_axis_label_width, _ = self._get_coordinate_axis_margins()
-        axis_tick_length = 6
-        axis_label_gap = 6
+            pygame.draw.line(self.screen, color, (sx, sy), (ex, ey), 2)
+
+    def _draw_path_nodes(
+        self,
+        pts: list[tuple[float, float]],
+        color: tuple[int, int, int],
+    ) -> None:
+        r = max(3, self.cell_size // 6)
+
+        for x, y in pts:
+            cx = self.grid_offset_x + x * self.cell_size + self.cell_size // 2
+            cy = self.grid_offset_y + y * self.cell_size + self.cell_size // 2
+            pygame.draw.circle(self.screen, color, (cx, cy), r)
+            pygame.draw.circle(self.screen, WHITE, (cx, cy), max(1, r - 2))
+
+    def _draw_axes(self) -> None:
+        map_w = self.grid_map.width * self.cell_size
+        map_h = self.grid_map.height * self.cell_size
+        axis_label_w, _ = self._axis_label_margins()
+        tick_len = 6
+        label_gap = 6
         label_font = pygame.font.SysFont(TEXT_FONT, SMALL_TEXT_SIZE)
 
-        grid_left = self.grid_offset_x
-        grid_top = self.grid_offset_y
-        grid_right = grid_left + map_width
-        grid_bottom = grid_top + map_height
+        gx = self.grid_offset_x
+        gy = self.grid_offset_y
+        gr = gx + map_w
+        gb = gy + map_h
 
-        pygame.draw.line(
-            self.screen, BLACK, (grid_left, grid_top), (grid_left, grid_bottom), 2
-        )
-        pygame.draw.line(
-            self.screen, BLACK, (grid_left, grid_top), (grid_right, grid_top), 2
-        )
+        pygame.draw.line(self.screen, BLACK, (gx, gy), (gx, gb), 2)
+        pygame.draw.line(self.screen, BLACK, (gx, gy), (gr, gy), 2)
 
         max_x_tick = self.grid_map.width - (self.grid_map.width % 5)
         for coord in range(0, max_x_tick + 1, 5):
-            x_pos = grid_left + coord * self.cell_size
+            tick_x = gx + coord * self.cell_size
             pygame.draw.line(
                 self.screen,
                 BLACK,
-                (x_pos, grid_top - axis_tick_length),
-                (x_pos, grid_top),
+                (tick_x, gy - tick_len),
+                (tick_x, gy),
                 1,
             )
-
-            label_surface = label_font.render(str(coord), True, BLACK)
-            label_x = x_pos - label_surface.get_width() // 2
-            label_y = (
-                grid_top
-                - axis_tick_length
-                - axis_label_gap
-                - label_surface.get_height()
+            lbl = label_font.render(str(coord), True, BLACK)
+            self.screen.blit(
+                lbl,
+                (
+                    tick_x - lbl.get_width() // 2,
+                    gy - tick_len - label_gap - lbl.get_height(),
+                ),
             )
-            self.screen.blit(label_surface, (label_x, label_y))
 
         max_y_tick = self.grid_map.height - (self.grid_map.height % 5)
         for coord in range(0, max_y_tick + 1, 5):
-            y_pos = grid_top + coord * self.cell_size
+            tick_y = gy + coord * self.cell_size
             pygame.draw.line(
                 self.screen,
                 BLACK,
-                (grid_left - axis_tick_length, y_pos),
-                (grid_left, y_pos),
+                (gx - tick_len, tick_y),
+                (gx, tick_y),
                 1,
             )
-
-            label_surface = label_font.render(str(coord), True, BLACK)
-            label_x = (
-                grid_left - y_axis_label_width + axis_tick_length + axis_label_gap - 10
+            lbl = label_font.render(str(coord), True, BLACK)
+            self.screen.blit(
+                lbl,
+                (
+                    gx - axis_label_w + tick_len + label_gap - 10,
+                    tick_y - lbl.get_height() // 2,
+                ),
             )
-            label_y = y_pos - label_surface.get_height() // 2
-            self.screen.blit(label_surface, (label_x, label_y))
 
-    def _get_coordinate_axis_margins(self) -> tuple[float, float]:
+    def _axis_label_margins(self) -> tuple[float, float]:
         label_font = pygame.font.SysFont(TEXT_FONT, SMALL_TEXT_SIZE)
 
         max_x_label = self.grid_map.width - (self.grid_map.width % 5)
         max_y_label = self.grid_map.height - (self.grid_map.height % 5)
-        max_label_width = max(
+        max_lbl_w = max(
             label_font.size(str(max_x_label))[0],
             label_font.size(str(max_y_label))[0],
         )
 
-        axis_tick_length = 6
-        axis_label_gap = 6
-        y_axis_label_width = max_label_width + axis_tick_length + axis_label_gap + 2
-        x_axis_label_height = (
-            label_font.get_height() + axis_tick_length + axis_label_gap
-        )
+        tick_len = 6
+        label_gap = 6
+        margin_w = max_lbl_w + tick_len + label_gap + 2
+        margin_h = label_font.get_height() + tick_len + label_gap
 
-        return y_axis_label_width, x_axis_label_height
-
-    def draw_cell_values(self) -> None:
-        font_size = max(15, self.cell_size // 2)
-        font = pygame.font.SysFont("monospace", font_size, bold=True)
-
-        value_colors = {
-            self.grid_map.FREE: BLACK,  # 0 → màu nhạt
-            self.grid_map.OBSTACLE: WHITE,  # 1 → trắng (nền đen)
-            self.grid_map.START: BLACK,  # 2 → trắng (nền xanh lá)
-            self.grid_map.GOAL: BLACK,  # 3 → trắng (nền đỏ)
-        }
-
-        for row in range(self.grid_map.height):
-            for col in range(self.grid_map.width):
-                value = self.grid_map.grid[row][col]
-
-                color = value_colors.get(value, LIGHT)
-                text_surface = font.render(str(value), True, color)
-
-                cell_center_x = (
-                    self.grid_offset_x + col * self.cell_size + self.cell_size // 2
-                )
-                cell_center_y = (
-                    self.grid_offset_y + row * self.cell_size + self.cell_size // 2
-                )
-
-                text_rect = text_surface.get_rect(center=(cell_center_x, cell_center_y))
-                self.screen.blit(text_surface, text_rect)
+        return margin_w, margin_h
 
 
 if __name__ == "__main__":

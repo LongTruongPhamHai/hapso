@@ -38,7 +38,7 @@ from utils import (
     euclidean_distance,
     min_distance_line_to_obstacle,
     round_pos,
-    total_fitness,
+    compute_fitness,
     turning_angle,
 )
 
@@ -135,21 +135,18 @@ class HAPSO:
         if start == goal:
             return [start, goal]
 
-        initial_path = self._astar_planning()
+        initial_path = self._run_astar()
         if initial_path is None:
             return None
 
-        pso_optimized_path = self._pso_optimize_path(initial_path)
+        pso_path = self._pso_optimize_path(initial_path)
+        smooth_path = self._smooth_path(pso_path)
+        smooth_path.append(goal)
 
-        pso_improved_path = self._improve_pso_path(pso_optimized_path)
+        return smooth_path
 
-        pso_improved_path.append(goal)
-
-        return pso_improved_path
-
-    def _astar_planning(self) -> Optional[list[tuple[float, float]]]:
-        astar = Astar(grid_map=self.grid_map)
-        return astar.plan()
+    def _run_astar(self) -> Optional[list[tuple[float, float]]]:
+        return Astar(grid_map=self.grid_map).plan()
 
     def _pso_optimize_path(
         self, path: list[tuple[float, float]]
@@ -157,237 +154,194 @@ class HAPSO:
         if len(path) <= 2:
             return path
 
-        optimized_path = [path[0]]
+        optimized = [path[0]]
 
         for i in range(1, len(path) - 1):
-            prev_point = optimized_path[-1]
+            prev_point = optimized[-1]
             next_point = path[i + 1]
 
-            particles = self._initialize_pso_particles(prev_point, next_point)
+            particles = self._init_particles(prev_point, next_point)
+            best_pos = self._run_pso_segment(particles, prev_point, next_point)
+            optimized.append(round_pos(best_pos))
 
-            best_particles = self._pso_optimize_segment(
-                particles, prev_point, next_point
-            )
+        return optimized
 
-            optimized_path.append(round_pos(best_particles))
-
-        return optimized_path
-
-    def _initialize_pso_particles(
+    def _init_particles(
         self, prev_point: tuple[float, float], next_point: tuple[float, float]
     ) -> list[dict]:
         particles = []
 
-        for i in range(self.n_particles):
-            valid = False
+        max_vel = self.vmax_k * sqrt(
+            (next_point[0] - prev_point[0]) ** 2 + (next_point[1] - prev_point[1]) ** 2
+        )
 
-            for attempt in range(self.max_init_attempts):
-                particle_x = prev_point[0] + (
-                    (next_point[0] - prev_point[0]) * uniform(0.0, 1.0)
-                )
-                particle_y = prev_point[1] + (
-                    (next_point[1] - prev_point[1]) * uniform(0.0, 1.0)
-                )
+        for _ in range(self.n_particles):
+            px, py = self._sample_valid_position(prev_point, next_point)
 
-                particle_pos = round_pos((particle_x, particle_y))
+            vel_x = uniform(-max_vel, max_vel)
+            vel_y = uniform(-max_vel, max_vel)
 
-                if not self.grid_map.is_inside(particle_x, particle_y):
-                    continue
+            fitness = self._eval_fitness((px, py), prev_point, next_point)
 
-                if self.grid_map.is_obstacle(int(particle_x), int(particle_y)):
-                    continue
-
-                if (
-                    min_distance_line_to_obstacle(
-                        particle_pos, particle_pos, self.grid_map
-                    )
-                    < self.min_clearance
-                ):
-                    continue
-
-                valid = True
-                break
-
-            if not valid:
-                particle_x = round((prev_point[0] + next_point[0]) / 2.0, 2)
-                particle_y = round((prev_point[1] + next_point[1]) / 2.0, 2)
-
-            max_velocity = self.vmax_k * sqrt(
-                (next_point[0] - prev_point[0]) ** 2
-                + (next_point[1] - prev_point[1]) ** 2
+            particles.append(
+                {
+                    "pos": (px, py),
+                    "vel": (vel_x, vel_y),
+                    "best_pos": (px, py),
+                    "best_fitness": fitness,
+                    "fitness": fitness,
+                }
             )
-
-            velocity_x = uniform(-max_velocity, max_velocity)
-            velocity_y = uniform(-max_velocity, max_velocity)
-
-            fitness = self._pso_fitness(
-                (particle_x, particle_y), prev_point, next_point
-            )
-
-            particle = {
-                "position": (particle_x, particle_y),
-                "velocity": (velocity_x, velocity_y),
-                "best_position": (particle_x, particle_y),
-                "best_fitness": fitness,
-                "fitness": fitness,
-            }
-            particles.append(particle)
 
         return particles
 
-    def _pso_optimize_segment(
+    def _sample_valid_position(
+        self, prev_point: tuple[float, float], next_point: tuple[float, float]
+    ) -> tuple[float, float]:
+        for _ in range(self.max_init_attempts):
+            t = uniform(0.0, 1.0)
+            px = prev_point[0] + (next_point[0] - prev_point[0]) * t
+            py = prev_point[1] + (next_point[1] - prev_point[1]) * t
+            pos = round_pos((px, py))
+
+            if not self.grid_map.is_inside(px, py):
+                continue
+
+            if self.grid_map.is_obstacle(int(px), int(py)):
+                continue
+
+            if (
+                min_distance_line_to_obstacle(pos, pos, self.grid_map)
+                < self.min_clearance
+            ):
+                continue
+
+            return (px, py)
+
+        return (
+            round((prev_point[0] + next_point[0]) / 2.0, 2),
+            round((prev_point[1] + next_point[1]) / 2.0, 2),
+        )
+
+    def _run_pso_segment(
         self,
         particles: list[dict],
         prev_point: tuple[float, float],
         next_point: tuple[float, float],
     ) -> tuple[float, float]:
-        gbest_particle = min(particles, key=lambda p: p["best_fitness"])
-
-        gbest_position = gbest_particle["best_position"]
-        gbest_fitness = gbest_particle["best_fitness"]
+        gbest = min(particles, key=lambda p: p["best_fitness"])
+        gbest_pos = gbest["best_pos"]
+        gbest_fitness = gbest["best_fitness"]
 
         if self.use_sobl:
-            local_lb_x = min(prev_point[0], next_point[0]) - self.sobl_margin
-            local_ub_x = max(prev_point[0], next_point[0]) + self.sobl_margin
-            local_lb_y = min(prev_point[1], next_point[1]) - self.sobl_margin
-            local_ub_y = max(prev_point[1], next_point[1]) + self.sobl_margin
+            lb_x = min(prev_point[0], next_point[0]) - self.sobl_margin
+            ub_x = max(prev_point[0], next_point[0]) + self.sobl_margin
+            lb_y = min(prev_point[1], next_point[1]) - self.sobl_margin
+            ub_y = max(prev_point[1], next_point[1]) + self.sobl_margin
 
-        for iteration in range(self.max_iter):
-            for particle in particles:
-                weight = self._stochastic_inertia_weight(iteration)
-                cog_coeff, soc_coeff = self._time_varying_acceleration_coefficients(
-                    iteration
+        for it in range(self.max_iter):
+            w = self._inertia_weight(it)
+            cog_t, soc_t = self._acceleration_coeffs(it)
+
+            for p in particles:
+                vel_x, vel_y = p["vel"]
+                pos_x, pos_y = p["pos"]
+                pb_x, pb_y = p["best_pos"]
+
+                new_vel_x = (
+                    w * vel_x
+                    + cog_t * uniform(0.0, 1.0) * (pb_x - pos_x)
+                    + soc_t * uniform(0.0, 1.0) * (gbest_pos[0] - pos_x)
+                )
+                new_vel_y = (
+                    w * vel_y
+                    + cog_t * uniform(0.0, 1.0) * (pb_y - pos_y)
+                    + soc_t * uniform(0.0, 1.0) * (gbest_pos[1] - pos_y)
                 )
 
-                curr_velocity = particle["velocity"]
-                curr_position = particle["position"]
-                curr_pbest = particle["best_position"]
-
-                new_velocity_x = (
-                    weight * curr_velocity[0]
-                    + cog_coeff * uniform(0.0, 1.0) * (curr_pbest[0] - curr_position[0])
-                    + soc_coeff
-                    * uniform(0.0, 1.0)
-                    * (gbest_position[0] - curr_position[0])
-                )
-                new_velocity_y = (
-                    weight * curr_velocity[1]
-                    + cog_coeff * uniform(0.0, 1.0) * (curr_pbest[1] - curr_position[1])
-                    + soc_coeff
-                    * uniform(0.0, 1.0)
-                    * (gbest_position[1] - curr_position[1])
-                )
-
-                new_position = round_pos(
-                    (
-                        curr_position[0] + new_velocity_x,
-                        curr_position[1] + new_velocity_y,
-                    )
-                )
+                new_pos = round_pos((pos_x + new_vel_x, pos_y + new_vel_y))
 
                 if self.use_sobl:
                     r = gauss(self.sobl_mu, self.sobl_sigma)
+                    opp_x = max(lb_x, min(ub_x, round(lb_x + ub_x - new_pos[0] * r, 2)))
+                    opp_y = max(lb_y, min(ub_y, round(lb_y + ub_y - new_pos[1] * r, 2)))
 
-                    opposite_x = round(local_lb_x + local_ub_x - new_position[0] * r, 2)
-                    opposite_y = round(local_lb_y + local_ub_y - new_position[1] * r, 2)
+                    fit_new = self._eval_fitness(new_pos, prev_point, next_point)
+                    fit_opp = self._eval_fitness((opp_x, opp_y), prev_point, next_point)
 
-                    opposite_x = max(local_lb_x, min(local_ub_x, opposite_x))
-                    opposite_y = max(local_lb_y, min(local_ub_y, opposite_y))
-
-                    new_position_fitness = self._pso_fitness(
-                        new_position,
-                        prev_point,
-                        next_point,
-                    )
-                    opposite_position_fitness = self._pso_fitness(
-                        (opposite_x, opposite_y),
-                        prev_point,
-                        next_point,
-                    )
-
-                    if opposite_position_fitness < new_position_fitness:
-                        particle["position"] = (opposite_x, opposite_y)
-                        particle["fitness"] = opposite_position_fitness
+                    if fit_opp < fit_new:
+                        p["pos"] = (opp_x, opp_y)
+                        p["fitness"] = fit_opp
 
                     else:
-                        particle["position"] = new_position
-                        particle["fitness"] = new_position_fitness
+                        p["pos"] = new_pos
+                        p["fitness"] = fit_new
 
                 else:
-                    particle["position"] = new_position
-                    particle["fitness"] = self._pso_fitness(
-                        new_position, prev_point, next_point
-                    )
+                    p["pos"] = new_pos
+                    p["fitness"] = self._eval_fitness(new_pos, prev_point, next_point)
 
-                particle["velocity"] = (
-                    new_velocity_x,
-                    new_velocity_y,
-                )
+                p["vel"] = (new_vel_x, new_vel_y)
 
-                if particle["fitness"] < particle["best_fitness"]:
-                    particle["best_fitness"] = particle["fitness"]
-                    particle["best_position"] = particle["position"]
+                if p["fitness"] < p["best_fitness"]:
+                    p["best_fitness"] = p["fitness"]
+                    p["best_pos"] = p["pos"]
 
-                new_gbest_particle = min(particles, key=lambda p: p["best_fitness"])
-                new_gbest_fitness = new_gbest_particle["best_fitness"]
+                candidate = min(particles, key=lambda p: p["best_fitness"])
+                if candidate["best_fitness"] < gbest_fitness:
+                    gbest_fitness = candidate["best_fitness"]
+                    gbest_pos = candidate["best_pos"]
 
-                if new_gbest_fitness < gbest_fitness:
-                    gbest_fitness = new_gbest_fitness
-                    gbest_position = new_gbest_particle["best_position"]
+        return gbest_pos
 
-        return gbest_position
-
-    def _pso_fitness(
+    def _eval_fitness(
         self,
-        particle: tuple[float, float],
+        particle_pos: tuple[float, float],
         prev_point: tuple[float, float],
         next_point: tuple[float, float],
     ) -> float:
-        return total_fitness(
-            [prev_point, particle, next_point],
+        return compute_fitness(
+            [prev_point, particle_pos, next_point],
             self.grid_map,
             self.min_clearance,
             self.collision_penalty,
         )
 
-    def _stochastic_inertia_weight(self, iter: int) -> float:
+    def _inertia_weight(self, it: int) -> float:
         if self.use_siw:
-            return self.w_max - (self.w_max - self.w_min) * (
-                iter / self.max_iter
-            ) * exp(uniform(-0.1, 0.1))
+            return self.w_max - (self.w_max - self.w_min) * (it / self.max_iter) * exp(
+                uniform(-0.1, 0.1)
+            )
 
         return self.weight
 
-    def _time_varying_acceleration_coefficients(self, iter: int) -> tuple[float, float]:
+    def _acceleration_coeffs(self, it: int) -> tuple[float, float]:
         if self.use_tvac:
-            cog_val = (self.cog_final - self.cog_init) * (
-                iter / self.max_iter
-            ) + self.cog_init
-            soc_val = (self.soc_final - self.soc_init) * (
-                iter / self.max_iter
-            ) + self.soc_init
+            t = it / self.max_iter
+            cog_t = (self.cog_final - self.cog_init) * t + self.cog_init
+            soc_t = (self.soc_final - self.soc_init) * t + self.soc_init
 
-            return cog_val, soc_val
+            return cog_t, soc_t
 
         return self.cognitive_coeff, self.social_coeff
 
-    def _improve_pso_path(
+    def _smooth_path(
         self, path: list[tuple[float, float]]
     ) -> list[tuple[float, float]]:
-        current_path = path
+        curr_path = path
 
-        if self.use_visibility_shortcutting and len(current_path) > 2:
-            current_path = self._visibility_shortcut(current_path)
+        if self.use_visibility_shortcutting and len(curr_path) > 2:
+            curr_path = self._visibility_shortcut(curr_path)
 
-        if self.use_bezier and len(current_path) > 2:
-            current_path = self._bezier_corner_smoothing(current_path)
+        if self.use_bezier and len(curr_path) > 2:
+            curr_path = self._bezier_corner_smooth(curr_path)
 
-        if self.use_laplacian and len(current_path) > 2:
-            current_path = self._laplacian_smoothing(current_path)
+        if self.use_laplacian and len(curr_path) > 2:
+            curr_path = self._laplacian_smooth(curr_path)
 
-        return current_path
+        return curr_path
 
-    def _safe(
+    def _is_segment_safe(
         self,
         start_point: tuple[float, float],
         end_point: tuple[float, float],
@@ -410,7 +364,7 @@ class HAPSO:
             j = len(path) - 1
 
             while j > i + 1:
-                if self._safe(result[-1], path[j]):
+                if self._is_segment_safe(result[-1], path[j]):
                     break
 
                 j -= 1
@@ -420,7 +374,7 @@ class HAPSO:
 
         return result
 
-    def _bezier_corner_smoothing(
+    def _bezier_corner_smooth(
         self, path: list[tuple[float, float]]
     ) -> list[tuple[float, float]]:
         smoothed = [path[0]]
@@ -436,50 +390,48 @@ class HAPSO:
                 smoothed.append(curr_point)
                 continue
 
-            distance_prev = euclidean_distance(prev_point, curr_point)
-            distance_next = euclidean_distance(curr_point, next_point)
+            d_prev = euclidean_distance(prev_point, curr_point)
+            d_next = euclidean_distance(curr_point, next_point)
 
-            if distance_prev < 1e-6 or distance_next < 1e-6:
+            if d_prev < 1e-6 or d_next < 1e-6:
                 smoothed.append(curr_point)
                 continue
 
-            prev_blend_ratio = min(self.bezier_blend_ratio, 0.5)
-            next_blend_ratio = min(self.bezier_blend_ratio, 0.5)
+            blend = min(self.bezier_blend_ratio, 0.5)
 
-            entry_point = (
-                curr_point[0] + prev_blend_ratio * (prev_point[0] - curr_point[0]),
-                curr_point[1] + prev_blend_ratio * (prev_point[1] - curr_point[1]),
+            entry = (
+                curr_point[0] + blend * (prev_point[0] - curr_point[0]),
+                curr_point[1] + blend * (prev_point[1] - curr_point[1]),
+            )
+            exit_ = (
+                curr_point[0] + blend * (next_point[0] - curr_point[0]),
+                curr_point[1] + blend * (next_point[1] - curr_point[1]),
             )
 
-            exit_point = (
-                curr_point[0] + next_blend_ratio * (next_point[0] - curr_point[0]),
-                curr_point[1] + next_blend_ratio * (next_point[1] - curr_point[1]),
-            )
-
-            bezier_points = []
+            bezier_pts = []
             for k in range(self.bezier_n_points + 1):
-                blend_t = k / self.bezier_n_points
-                bezier_x = (
-                    (1 - blend_t) ** 2 * entry_point[0]
-                    + 2 * (1 - blend_t) * blend_t * curr_point[0]
-                    + blend_t**2 * exit_point[0]
+                t = k / self.bezier_n_points
+                bx = (
+                    (1 - t) ** 2 * entry[0]
+                    + 2 * (1 - t) * t * curr_point[0]
+                    + t**2 * exit_[0]
                 )
-                bezier_y = (
-                    (1 - blend_t) ** 2 * entry_point[1]
-                    + 2 * (blend_t) * blend_t * curr_point[1]
-                    + blend_t**2 * exit_point[1]
+                by = (
+                    (1 - t) ** 2 * entry[1]
+                    + 2 * (1 - t) * t * curr_point[1]
+                    + t**2 * exit_[1]
                 )
-                bezier_points.append(round_pos((bezier_x, bezier_y)))
+                bezier_pts.append(round_pos((bx, by)))
 
-            bezier_safe = self._safe(smoothed[-1], bezier_points[0])
-            if bezier_safe:
-                for k in range(len(bezier_points) - 1):
-                    if not self._safe(bezier_points[k], bezier_points[k + 1]):
-                        bezier_safe = False
+            is_safe = self._is_segment_safe(smoothed[-1], bezier_pts[0])
+            if is_safe:
+                for k in range(len(bezier_pts) - 1):
+                    if not self._is_segment_safe(bezier_pts[k], bezier_pts[k + 1]):
+                        is_safe = False
                         break
 
-            if bezier_safe:
-                smoothed.extend(bezier_points)
+            if is_safe:
+                smoothed.extend(bezier_pts)
 
             else:
                 smoothed.append(curr_point)
@@ -487,19 +439,21 @@ class HAPSO:
         smoothed.append(path[-1])
         return smoothed
 
-    def _laplacian_smoothing(
+    def _laplacian_smooth(
         self, path: list[tuple[float, float]]
     ) -> list[tuple[float, float]]:
         if len(path) <= 2:
             return path
 
-        for _ in range(self.laplacian_round):
-            smoothed_path = path.copy()
+        curr_path = path
 
-            for i in range(1, len(path) - 1):
-                prev_point = path[i - 1]
-                curr_point = path[i]
-                next_point = path[i + 1]
+        for _ in range(self.laplacian_round):
+            new_path = curr_path.copy()
+
+            for i in range(1, len(curr_path) - 1):
+                prev_point = curr_path[i - 1]
+                curr_point = curr_path[i]
+                next_point = curr_path[i + 1]
 
                 candidate = (
                     (1 - self.laplacian_alpha) * curr_point[0]
@@ -508,13 +462,13 @@ class HAPSO:
                     + self.laplacian_alpha * 0.5 * (prev_point[1] + next_point[1]),
                 )
 
-                if self._safe(prev_point, candidate) and self._safe(
-                    candidate, next_point
-                ):
-                    smoothed_path[i] = candidate
+                if self._is_segment_safe(
+                    prev_point, candidate
+                ) and self._is_segment_safe(candidate, next_point):
+                    new_path[i] = candidate
 
-            smoothed_path[0] = path[0]
-            smoothed_path[-1] = path[-1]
-            path = smoothed_path
+            new_path[0] = curr_path[0]
+            new_path[-1] = curr_path[-1]
+            curr_path = new_path
 
-        return [round_pos(point) for point in path]
+        return [round_pos(pt) for pt in curr_path]

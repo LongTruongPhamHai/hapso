@@ -1,5 +1,7 @@
 from config.parameter import GRID_MAP_HEIGHT, GRID_MAP_WIDTH
 
+import numpy as np
+
 
 class GridMap:
     FREE = 0
@@ -27,8 +29,17 @@ class GridMap:
                 if self.grid[y][x] == self.OBSTACLE:
                     self._obstacle_set.add((x, y))
 
-    def get_obstacles(self) -> set[tuple[int, int]]:
-        return self._obstacle_set
+    def get_obstacles(self) -> list[tuple[int, int]]:
+        return list(self._obstacle_set)
+
+    def get_obstacle_set(self) -> set[tuple[int, int]]:
+        return set(self._obstacle_set)
+
+    def get_obstacle_count(self) -> int:
+        return len(self.get_obstacles())
+
+    def get_obstacles_as_centers(self) -> np.ndarray:
+        return np.array([[x + 0.5, y + 0.5] for x, y in self.get_obstacles()])
 
     def is_inside(self, x: int, y: int) -> bool:
         return 0 <= x < self.width and 0 <= y < self.height
@@ -91,7 +102,6 @@ class GridMap:
         return True
 
     def resize(self, width: int, height: int) -> None:
-
         self.width = width
         self.height = height
 

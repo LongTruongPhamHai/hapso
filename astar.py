@@ -1,4 +1,6 @@
-from config.parameter import MIN_CLEARANCE
+from config.parameter import (
+    MIN_CLEARANCE,
+)
 from grid_map import GridMap
 from typing import Optional
 from utils import euclidean_distance, min_distance_line_to_obstacle
@@ -24,7 +26,7 @@ class Astar:
         self.came_from: dict[tuple[float, float], tuple[float, float]] = {}
         self.visited: set[tuple[float, float]] = set()
 
-        # openset = [(f_score, h_score, g_score, pos)]
+        # open_set = [(f_score, h_score, g_score, pos)]
         self.open_set: list[tuple[float, float, float, tuple[float, float]]] = []
 
     def plan(self) -> Optional[list[tuple[float, float]]]:
@@ -46,65 +48,51 @@ class Astar:
 
         self.came_from = {}
         self.g_score = {start: 0}
-        start_heuristic = euclidean_distance(start, goal)
-        self.f_score = {start: start_heuristic}
-
+        start_h = euclidean_distance(start, goal)
+        self.f_score = {start: start_h}
         self.visited = set()
-        # open_set = [(f_score, h_score, g_score, pos)] - sorted by f_score
-        self.open_set = [(start_heuristic, start_heuristic, 0, start)]
+        self.open_set = [(start_h, start_h, 0, start)]
 
         while self.open_set:
-            _, _, current_cost, current = heapq.heappop(self.open_set)
+            _, _, g_curr, curr = heapq.heappop(self.open_set)
 
-            if current in self.visited:
+            if curr in self.visited:
                 continue
 
-            self.visited.add(current)
+            self.visited.add(curr)
 
-            if current == goal:
-                path = self._reconstruct_path(current)
+            if curr == goal:
+                return self._reconstruct_path(curr)
 
-                return path
-
-            for neighbor in self._get_neighbors(current):
+            for neighbor in self._get_neighbors(curr):
                 if neighbor in self.visited:
                     continue
 
                 if self.min_clearance > 0.0:
                     if (
-                        min_distance_line_to_obstacle(current, neighbor, self.grid_map)
+                        min_distance_line_to_obstacle(curr, neighbor, self.grid_map)
                         <= self.min_clearance
                     ):
                         continue
 
-                cost = euclidean_distance(current, neighbor)
-                tentative_g_score = current_cost + cost
+                move_cost = euclidean_distance(curr, neighbor)
+                tentative_g = g_curr + move_cost
 
-                if (
-                    neighbor not in self.g_score
-                    or tentative_g_score < self.g_score[neighbor]
-                ):
-                    self.came_from[neighbor] = current
-                    self.g_score[neighbor] = tentative_g_score
+                if neighbor not in self.g_score or tentative_g < self.g_score[neighbor]:
+                    self.came_from[neighbor] = curr
+                    self.g_score[neighbor] = tentative_g
 
-                    neighbor_heuristic = euclidean_distance(neighbor, goal)
-                    self.f_score[neighbor] = tentative_g_score + neighbor_heuristic
+                    neighbor_h = euclidean_distance(neighbor, goal)
+                    self.f_score[neighbor] = tentative_g + neighbor_h
 
                     heapq.heappush(
                         self.open_set,
-                        (
-                            self.f_score[neighbor],
-                            neighbor_heuristic,
-                            tentative_g_score,
-                            neighbor,
-                        ),
+                        (self.f_score[neighbor], neighbor_h, tentative_g, neighbor),
                     )
 
         return None
 
     def _get_neighbors(self, pos: tuple[float, float]) -> list[tuple[float, float]]:
-        neighbors = []
-
         directions = [
             (0, -1),
             (0, 1),
@@ -116,26 +104,25 @@ class Astar:
             (1, 1),
         ]
 
-        position_x, position_y = pos[0], pos[1]
+        px, py = pos
+        neighbors = []
 
-        for offset_x, offset_y in directions:
-            neighbor_x, neighbor_y = position_x + offset_x, position_y + offset_y
+        for dx, dy in directions:
+            nx, ny = px + dx, py + dy
 
-            if self.grid_map.is_inside(
-                neighbor_x, neighbor_y
-            ) and not self.grid_map.is_obstacle(neighbor_x, neighbor_y):
-                neighbors.append((neighbor_x, neighbor_y))
+            if self.grid_map.is_inside(nx, ny) and not self.grid_map.is_obstacle(
+                nx, ny
+            ):
+                neighbors.append((nx, ny))
 
         return neighbors
 
-    def _reconstruct_path(
-        self, current: tuple[float, float]
-    ) -> list[tuple[float, float]]:
-        path = [current]
+    def _reconstruct_path(self, curr: tuple[float, float]) -> list[tuple[float, float]]:
+        path = [curr]
 
-        while current in self.came_from:
-            current = self.came_from[current]
-            path.append(current)
+        while curr in self.came_from:
+            curr = self.came_from[curr]
+            path.append(curr)
 
         path.reverse()
         return path
