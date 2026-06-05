@@ -828,7 +828,9 @@ class App:
         run_records: list[dict] = []
         best_run: dict | None = None
 
-        output_dir = Path(__file__).resolve().parent / "data" / "result_batch_test"
+        output_dir = (
+            Path(__file__).resolve().parent / "data" / "results" / "batch_tests"
+        )
         output_dir.mkdir(parents=True, exist_ok=True)
 
         for run_idx in range(run_count):
