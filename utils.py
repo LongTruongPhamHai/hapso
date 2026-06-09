@@ -482,6 +482,8 @@ def print_batch_summary_report(
 
     print("=" * 120)
     print("[BATCH] RESULTS:")
+    print(f"[BATCH] Algorithm   : {algo_name}")
+    print(f"[BATCH] Map         : {map_name}")
     print(f"[BATCH] Total runs  : {run_count}")
     print(f"[BATCH] Successful  : {successful_runs}/{run_count}")
     print(f"[BATCH] Start time  : {batch_start_time}")
