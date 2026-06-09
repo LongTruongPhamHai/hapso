@@ -306,16 +306,16 @@ def print_path_metrics(
     success = bool(path) and path is not None
     result_str = "SUCCESS" if success else "FAILED"
 
-    print("=" * 70)
+    print("=" * 120)
     print("[ALGORITHM] ALGORITHM REPORT")
-    print("=" * 70)
+    print("=" * 120)
     print(f"{'Algorithm':<16}: {algo}")
     print(f"{'Map':<16}: {map_name}")
     print(f"{'Start time':<16}: {start_time}")
     print(f"{'End time':<16}: {end_time}")
     print(f"{'Result':<16}: {result_str}")
     # print(f"{'Path':<16}: {path if path else '[]'}")
-    print("-" * 70)
+    print("-" * 120)
     print("FITNESS / PATH METRICS:")
 
     _print_metric_row("Total distance", metrics.get("Total distance"))
@@ -324,7 +324,7 @@ def print_path_metrics(
     _print_metric_row("Execution time", metrics.get("Execution time"))
     _print_metric_row("TOTAL FITNESS", metrics.get("TOTAL FITNESS"))
 
-    print("=" * 70)
+    print("=" * 120)
 
 
 def _print_metric_row(key: str, val) -> None:
@@ -356,21 +356,21 @@ def print_all_path_metrics(
 
         print(line)
 
-    print("=" * 70)
+    print("=" * 120)
     print("[ALGORITHM ALL] ALL ALGORITHM REPORT")
-    print("=" * 70)
+    print("=" * 120)
     print(f"{'Algorithms':<16}: {', '.join(algos)}")
     print(f"{'Map':<16}: {map_name}")
     print(f"{'Start time':<16}: {start_time}")
     print(f"{'End time':<16}: {end_time}")
-    print("-" * 70)
+    print("-" * 120)
     print("[ALGORITHM ALL] FITNESS / PATH METRICS:")
 
     header = f"{'Metrics':<{16}}"
     for a in algos:
         header += f"| {a:<{col}}"
     print(header)
-    print("-" * 70)
+    print("-" * 120)
 
     row("Result", lambda a: "SUCCESS" if all_paths.get(a) else "FAILED")
 
@@ -382,13 +382,13 @@ def print_all_path_metrics(
     row("Execution time", lambda a: all_path_metrics[a].get("Execution time (s)"))
     row("TOTAL FITNESS", lambda a: all_path_metrics[a].get("TOTAL FITNESS"))
 
-    # print("-" * 70)
+    # print("-" * 120)
     # print("PATH DETAIL:")
     # for a in algos:
     #     pts = all_paths.get(a) or []
     #     print(f"{a} path: {pts}")
 
-    print("=" * 70)
+    print("=" * 120)
 
 
 def print_batch_run_report(
@@ -405,10 +405,10 @@ def print_batch_run_report(
 ) -> None:
     result_str = "SUCCESS" if success else "FAILED"
 
-    # print("=" * 70)
+    # print("=" * 120)
     # print(f"[BATCH] ALGORITHM REPORT ({run_idx}/{run_count})")
 
-    # print("-" * 70)
+    # print("-" * 120)
     # print(f"{'Algorithm':<16}: {algo_name}")
     # print(f"{'Map':<16}: {map_name}")
     # print(f"{'Start time':<16}: {start_time}")
@@ -416,7 +416,7 @@ def print_batch_run_report(
     # print(f"{'Result':<16}: {result_str}")
     # # print(f"{'Path':<16}: {path if path else '[]'}")
 
-    # print("-" * 70)
+    # print("-" * 120)
     # print("FITNESS / PATH METRICS:")
     # if metrics:
     #     _print_metric_row("Total distance", metrics.get("Total distance"))
@@ -480,7 +480,7 @@ def print_batch_summary_report(
             line += f"| {_fmt(v):<{col}}"
         print(line)
 
-    print("=" * 70)
+    print("=" * 120)
     print("[BATCH] RESULTS:")
     print(f"[BATCH] Total runs  : {run_count}")
     print(f"[BATCH] Successful  : {successful_runs}/{run_count}")
@@ -494,13 +494,13 @@ def print_batch_summary_report(
             f"[BATCH] Best run    : {best_run['Run_ID']} "
             f"| Fitness = {best_run['TOTAL_FITNESS']:.4f}"
         )
-    print("-" * 70)
+    print("-" * 120)
 
     header = f"{'Metrics':<{16}}"
     for col_name in ("Best", "Worst", "Mean", "Median", "Std Dev"):
         header += f"| {col_name:<{col}}"
     print(header)
-    print("-" * 70)
+    print("-" * 120)
 
     _stat_row("Result", result_stats)
     _stat_row("Total distance", _stats(dist_vals))
@@ -509,7 +509,7 @@ def print_batch_summary_report(
     _stat_row("Execution time", _stats(time_vals))
     _stat_row("TOTAL FITNESS", _stats(fit_vals))
 
-    print("=" * 70)
+    print("=" * 120)
 
 
 def print_batch_header(
@@ -518,11 +518,11 @@ def print_batch_header(
     batch_start_time: str,
     run_count: int,
 ) -> None:
-    print("=" * 70)
+    print("=" * 120)
     print("[BATCH] ALGORITHM BATCH TEST REPORT")
-    print("=" * 70)
+    print("=" * 120)
     print(f"{'Algorithm':<16}: {algo_name}")
     print(f"{'Map':<16}: {map_name}")
     print(f"{'Start time':<16}: {batch_start_time}")
     print(f"{'Total runs':<16}: {run_count}")
-    print("=" * 70)
+    print("=" * 120)
