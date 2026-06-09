@@ -1,6 +1,7 @@
 from astar import Astar
 from config.parameter import (
     MIN_CLEARANCE,
+    PSO_PATIENCE,
     PSO_N_PARTICLES,
     PSO_MAX_INIT_ATTEMPTS,
     PSO_MAX_ITER,
@@ -44,6 +45,7 @@ class HAPSO:
         self,
         grid_map: GridMap,
         min_clearance: float = MIN_CLEARANCE,
+        patience: int = PSO_PATIENCE,
         n_particles: int = PSO_N_PARTICLES,
         max_init_attempts: int = PSO_MAX_INIT_ATTEMPTS,
         max_iter: int = PSO_MAX_ITER,
@@ -75,6 +77,7 @@ class HAPSO:
 
         self.min_clearance = float(min_clearance)
 
+        self.patience = patience
         self.n_particles = n_particles
         self.max_init_attempts = max_init_attempts
         self.max_iter = max_iter
@@ -225,7 +228,10 @@ class HAPSO:
             lb_y = min(prev_point[1], next_point[1]) - self.sobl_margin
             ub_y = max(prev_point[1], next_point[1]) + self.sobl_margin
 
+        stagnation_count = 0
+
         for it in range(self.max_iter):
+            prev_gbest_fitness = gbest_fitness
             w = self._inertia_weight(it)
             cog_t, soc_t = self._acceleration_coeffs(it)
 
@@ -277,6 +283,14 @@ class HAPSO:
                 if candidate["best_fitness"] < gbest_fitness:
                     gbest_fitness = candidate["best_fitness"]
                     gbest_pos = candidate["best_pos"]
+
+            if gbest_fitness < prev_gbest_fitness - 1e-6:
+                stagnation_count = 0
+
+            else:
+                stagnation_count += 1
+                if stagnation_count >= self.patience:
+                    break
 
         return gbest_pos
 

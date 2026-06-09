@@ -51,7 +51,6 @@ from pathlib import Path
 from prm import PRM
 from pso import PSO
 from rrt import RRT
-from rrt_star import RRTStar
 from tkinter import filedialog, messagebox, Tk
 from utils import (
     compute_path_metrics,
@@ -331,7 +330,6 @@ class App:
 
         self.algorithm_names = [
             "RRT",
-            "RRT-Star",
             "PRM",
             "A-Star",
             "PSO",
@@ -715,10 +713,6 @@ class App:
                 self.current_path = RRT(self.grid_map).plan()
                 self._stop_simulation()
 
-            case "RRT-Star":
-                self.current_path = RRTStar(self.grid_map).plan()
-                self._stop_simulation()
-
             case "PRM":
                 self.current_path = PRM(self.grid_map).plan()
                 self._stop_simulation()
@@ -747,9 +741,6 @@ class App:
 
                     if name == "RRT":
                         planner = RRT(self.grid_map)
-
-                    elif name == "RRT-Star":
-                        planner = RRTStar(self.grid_map)
 
                     elif name == "PRM":
                         planner = PRM(self.grid_map)
