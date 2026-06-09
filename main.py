@@ -49,6 +49,7 @@ from hapso import HAPSO
 from openpyxl import Workbook
 from pathlib import Path
 from prm import PRM
+from pso import PSO
 from rrt import RRT
 from rrt_star import RRTStar
 from tkinter import filedialog, messagebox, Tk
@@ -333,6 +334,7 @@ class App:
             "RRT-Star",
             "PRM",
             "A-Star",
+            "PSO",
             "HAPSO",
             "All",
         ]
@@ -725,6 +727,10 @@ class App:
                 self.current_path = Astar(self.grid_map).plan()
                 self._stop_simulation()
 
+            case "PSO":
+                self.current_path = PSO(self.grid_map).plan()
+                self._stop_simulation()
+
             case "HAPSO":
                 self.current_path = HAPSO(self.grid_map).plan()
                 self._stop_simulation()
@@ -750,6 +756,9 @@ class App:
 
                     elif name == "A-Star":
                         planner = Astar(self.grid_map)
+
+                    elif name == "PSO":
+                        planner = PSO(self.grid_map)
 
                     elif name == "HAPSO":
                         planner = HAPSO(self.grid_map)

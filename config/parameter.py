@@ -5,6 +5,8 @@ MIN_CLEARANCE: float = 1.0
 MARGIN_CELL: int = 3
 ROUND_NUM: int = 2
 
+PSO_N_WAYPOINTS: int = 5
+
 PSO_N_PARTICLES: int = 20
 PSO_MAX_INIT_ATTEMPTS: int = 20
 PSO_MAX_ITER: int = 50
