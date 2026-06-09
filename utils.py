@@ -1,6 +1,7 @@
+from config.parameter import MARGIN_CELL, ROUND_NUM
 from grid_map import GridMap
 from math import atan2, ceil, degrees, floor, sqrt
-from config.parameter import MARGIN_CELL, ROUND_NUM
+from statistics import median, stdev
 
 
 def round_pos(
@@ -278,38 +279,250 @@ def calculator_path_metrics(
     )
 
 
-def print_path_metrics(path_metrics: dict) -> None:
-    metric_keys = [
-        "Total distance",
-        "Total waypoint",
-        "Total angle",
-        "Min angle",
-        "Max angle",
-        "Average angle",
-        "Min clearance",
-        "Execution time",
-        "TOTAL FITNESS",
-    ]
+def _fmt(val) -> str:
+    if val is None or val == "-":
+        return "-"
 
-    algorithms = list(path_metrics.keys())
+    if isinstance(val, bool):
+        return "SUCCESS" if val else "FAILED"
 
-    print("=" * 120)
-    print(f"{'Metric':<25}", end="")
-    for algo in algorithms:
-        print(f"| {algo:<15}", end="")
-    print()
-    print("-" * 120)
+    if isinstance(val, float):
+        return f"{val:.4f}"
 
-    for key in metric_keys:
-        print(f"{key:<25}", end="")
+    return str(val)
 
-        for algo in algorithms:
-            val = path_metrics[algo].get(key, "-")
 
-            if isinstance(val, float):
-                val = f"{val:.4f}"
-            print(f"| {str(val):<15}", end="")
+def print_path_metrics(
+    path_metrics: dict,
+    *,
+    map_name: str = "N/A",
+    start_time: str = "N/A",
+    end_time: str = "N/A",
+    path: list[tuple[float, float]] | None = None,
+) -> None:
+    algo = next(iter(path_metrics))
+    metrics = path_metrics[algo]
 
-        print()
+    success = bool(path) and path is not None
+    result_str = "SUCCESS" if success else "FAILED"
 
-    print("=" * 120)
+    print("=" * 70)
+    print("[ALGORITHM] ALGORITHM REPORT")
+    print("=" * 70)
+    print(f"{'Algorithm':<16}: {algo}")
+    print(f"{'Map':<16}: {map_name}")
+    print(f"{'Start time':<16}: {start_time}")
+    print(f"{'End time':<16}: {end_time}")
+    print(f"{'Result':<16}: {result_str}")
+    # print(f"{'Path':<16}: {path if path else '[]'}")
+    print("-" * 70)
+    print("FITNESS / PATH METRICS:")
+
+    _print_metric_row("Total distance", metrics.get("Total distance"))
+    _print_metric_row("Average angle", metrics.get("Average angle"))
+    _print_metric_row("Min clearance", metrics.get("Min clearance"))
+    _print_metric_row("Execution time", metrics.get("Execution time"))
+    _print_metric_row("TOTAL FITNESS", metrics.get("TOTAL FITNESS"))
+
+    print("=" * 70)
+
+
+def _print_metric_row(key: str, val) -> None:
+    print(f"{key:<16}: {_fmt(val)}")
+
+
+def print_all_path_metrics(
+    all_path_metrics: dict,
+    all_paths: dict,
+    *,
+    map_name: str = "N/A",
+    start_time: str = "N/A",
+    end_time: str = "N/A",
+    algo_start_times: dict | None = None,
+    algo_end_times: dict | None = None,
+) -> None:
+    algos = list(all_path_metrics.keys())
+    algo_start_times = algo_start_times or {}
+    algo_end_times = algo_end_times or {}
+
+    col = 14
+
+    def row(key: str, getter) -> None:
+        line = f"{key:<{16}}"
+
+        for a in algos:
+            val = getter(a)
+            line += f"| {_fmt(val):<{col}}"
+
+        print(line)
+
+    print("=" * 70)
+    print("[ALGORITHM ALL] ALL ALGORITHM REPORT")
+    print("=" * 70)
+    print(f"{'Algorithms':<16}: {', '.join(algos)}")
+    print(f"{'Map':<16}: {map_name}")
+    print(f"{'Start time':<16}: {start_time}")
+    print(f"{'End time':<16}: {end_time}")
+    print("-" * 70)
+    print("[ALGORITHM ALL] FITNESS / PATH METRICS:")
+
+    header = f"{'Metrics':<{16}}"
+    for a in algos:
+        header += f"| {a:<{col}}"
+    print(header)
+    print("-" * 70)
+
+    row("Result", lambda a: "SUCCESS" if all_paths.get(a) else "FAILED")
+
+    for metric_key in ("Total distance", "Average angle", "Min clearance"):
+        row(metric_key, lambda a, k=metric_key: all_path_metrics[a].get(k))
+
+    row("Start time", lambda a: algo_start_times.get(a, "N/A").split()[1])
+    row("End time", lambda a: algo_end_times.get(a, "N/A").split()[1])
+    row("Execution time", lambda a: all_path_metrics[a].get("Execution time (s)"))
+    row("TOTAL FITNESS", lambda a: all_path_metrics[a].get("TOTAL FITNESS"))
+
+    # print("-" * 70)
+    # print("PATH DETAIL:")
+    # for a in algos:
+    #     pts = all_paths.get(a) or []
+    #     print(f"{a} path: {pts}")
+
+    print("=" * 70)
+
+
+def print_batch_run_report(
+    run_idx: int,
+    run_count: int,
+    algo_name: str,
+    map_name: str,
+    start_time: str,
+    end_time: str,
+    success: bool,
+    path: list[tuple[float, float]],
+    metrics: dict | None,
+    run_time: float,
+) -> None:
+    result_str = "SUCCESS" if success else "FAILED"
+
+    # print("=" * 70)
+    # print(f"[BATCH] ALGORITHM REPORT ({run_idx}/{run_count})")
+
+    # print("-" * 70)
+    # print(f"{'Algorithm':<16}: {algo_name}")
+    # print(f"{'Map':<16}: {map_name}")
+    # print(f"{'Start time':<16}: {start_time}")
+    # print(f"{'End time':<16}: {end_time}")
+    # print(f"{'Result':<16}: {result_str}")
+    # # print(f"{'Path':<16}: {path if path else '[]'}")
+
+    # print("-" * 70)
+    # print("FITNESS / PATH METRICS:")
+    # if metrics:
+    #     _print_metric_row("Total distance", metrics.get("Total distance"))
+    #     _print_metric_row("Average angle", metrics.get("Average angle"))
+    #     _print_metric_row("Min clearance", metrics.get("Min clearance"))
+    #     _print_metric_row("Execution time", run_time)
+    #     _print_metric_row("TOTAL FITNESS", metrics.get("TOTAL FITNESS"))
+
+    # else:
+    #     print("  (no metrics — run failed)")
+
+
+def print_batch_summary_report(
+    algo_name: str,
+    map_name: str,
+    batch_start_time: str,
+    batch_end_time: str,
+    run_count: int,
+    successful_runs: int,
+    total_time: float,
+    excel_path: str,
+    best_run: dict | None,
+    run_records: list[dict],
+) -> None:
+    def _series(key: str) -> list[float]:
+        return [
+            r[key] for r in run_records if r.get("Success") and r.get(key) is not None
+        ]
+
+    dist_vals = _series("Total_Distance")
+    angle_vals = _series("Average_Angle")
+    clear_vals = _series("Min_Clearance")
+    time_vals = _series("Execution_Time_s")
+    fit_vals = _series("TOTAL_FITNESS")
+
+    def _stats(vals: list[float]) -> tuple:
+        if not vals:
+            return ("-", "-", "-", "-", "-")
+        best_v = min(vals)
+        worst_v = max(vals)
+        mean_v = sum(vals) / len(vals)
+        med_v = median(vals)
+        std_v = stdev(vals) if len(vals) > 1 else 0.0
+        return (best_v, worst_v, mean_v, med_v, std_v)
+
+    failed_runs = run_count - successful_runs
+    result_stats = (
+        f"{successful_runs} OK",
+        f"{failed_runs} FAIL",
+        "-",
+        "-",
+        "-",
+    )
+
+    col = 14
+
+    def _stat_row(key: str, stats: tuple) -> None:
+        best_v, worst_v, mean_v, med_v, std_v = stats
+        line = f"{key:<{16}}"
+        for v in (best_v, worst_v, mean_v, med_v, std_v):
+            line += f"| {_fmt(v):<{col}}"
+        print(line)
+
+    print("=" * 70)
+    print("[BATCH] RESULTS:")
+    print(f"[BATCH] Total runs  : {run_count}")
+    print(f"[BATCH] Successful  : {successful_runs}/{run_count}")
+    print(f"[BATCH] Start time  : {batch_start_time}")
+    print(f"[BATCH] End time    : {batch_end_time}")
+    print(f"[BATCH] Total time  : {total_time:.4f}s")
+    print(f"[BATCH] Excel       : {excel_path}")
+
+    if best_run:
+        print(
+            f"[BATCH] Best run    : {best_run['Run_ID']} "
+            f"| Fitness = {best_run['TOTAL_FITNESS']:.4f}"
+        )
+    print("-" * 70)
+
+    header = f"{'Metrics':<{16}}"
+    for col_name in ("Best", "Worst", "Mean", "Median", "Std Dev"):
+        header += f"| {col_name:<{col}}"
+    print(header)
+    print("-" * 70)
+
+    _stat_row("Result", result_stats)
+    _stat_row("Total distance", _stats(dist_vals))
+    _stat_row("Average angle", _stats(angle_vals))
+    _stat_row("Min clearance", _stats(clear_vals))
+    _stat_row("Execution time", _stats(time_vals))
+    _stat_row("TOTAL FITNESS", _stats(fit_vals))
+
+    print("=" * 70)
+
+
+def print_batch_header(
+    algo_name: str,
+    map_name: str,
+    batch_start_time: str,
+    run_count: int,
+) -> None:
+    print("=" * 70)
+    print("[BATCH] ALGORITHM BATCH TEST REPORT")
+    print("=" * 70)
+    print(f"{'Algorithm':<16}: {algo_name}")
+    print(f"{'Map':<16}: {map_name}")
+    print(f"{'Start time':<16}: {batch_start_time}")
+    print(f"{'Total runs':<16}: {run_count}")
+    print("=" * 70)

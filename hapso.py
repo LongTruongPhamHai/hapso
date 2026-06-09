@@ -21,24 +21,20 @@ from config.parameter import (
     PSO_SOBL_MARGIN,
     PSO_SOBL_MU,
     PSO_SOBL_SIGMA,
-    PSO_USE_VISIBILITY_SHORTCUTTING,
     PSO_USE_BEZIER,
     PSO_BEZIER_THRESHOLD,
     PSO_BEZIER_BLEND_RATIO,
     PSO_BEZIER_N_POINTS,
-    PSO_USE_LAPLACIAN,
-    PSO_LAPLACIAN_ALPHA,
-    PSO_LAPLACIAN_ROUND,
 )
 from grid_map import GridMap
 from math import exp, sqrt
 from random import gauss, uniform
 from typing import Optional
 from utils import (
+    compute_fitness,
     euclidean_distance,
     min_distance_line_to_obstacle,
     round_pos,
-    compute_fitness,
     turning_angle,
 )
 
@@ -68,14 +64,10 @@ class HAPSO:
         sobl_margin: float = PSO_SOBL_MARGIN,
         sobl_mu: float = PSO_SOBL_MU,
         sobl_sigma: float = PSO_SOBL_SIGMA,
-        use_visibility_shortcutting: bool = PSO_USE_VISIBILITY_SHORTCUTTING,
         use_bezier: bool = PSO_USE_BEZIER,
         bezier_threshold: float = PSO_BEZIER_THRESHOLD,
         bezier_blend_ratio: float = PSO_BEZIER_BLEND_RATIO,
         bezier_n_points: int = PSO_BEZIER_N_POINTS,
-        use_laplacian: bool = PSO_USE_LAPLACIAN,
-        laplacian_alpha: float = PSO_LAPLACIAN_ALPHA,
-        laplacian_round: int = PSO_LAPLACIAN_ROUND,
     ) -> None:
         self.grid_map = grid_map
         self.start = self.grid_map.start
@@ -107,16 +99,10 @@ class HAPSO:
         self.sobl_mu = sobl_mu
         self.sobl_sigma = sobl_sigma
 
-        self.use_visibility_shortcutting = use_visibility_shortcutting
-
         self.use_bezier = use_bezier
         self.bezier_threshold = bezier_threshold
         self.bezier_blend_ratio = bezier_blend_ratio
         self.bezier_n_points = bezier_n_points
-
-        self.use_laplacian = use_laplacian
-        self.laplacian_alpha = laplacian_alpha
-        self.laplacian_round = laplacian_round
 
     def plan(self) -> Optional[list[tuple[float, float]]]:
         start = self.start
@@ -330,14 +316,8 @@ class HAPSO:
     ) -> list[tuple[float, float]]:
         curr_path = path
 
-        if self.use_visibility_shortcutting and len(curr_path) > 2:
-            curr_path = self._visibility_shortcut(curr_path)
-
         if self.use_bezier and len(curr_path) > 2:
             curr_path = self._bezier_corner_smooth(curr_path)
-
-        if self.use_laplacian and len(curr_path) > 2:
-            curr_path = self._laplacian_smooth(curr_path)
 
         return curr_path
 
@@ -350,29 +330,6 @@ class HAPSO:
             min_distance_line_to_obstacle(start_point, end_point, self.grid_map)
             > self.min_clearance
         )
-
-    def _visibility_shortcut(
-        self, path: list[tuple[float, float]]
-    ) -> list[tuple[float, float]]:
-        if len(path) <= 2:
-            return path
-
-        result = [path[0]]
-        i = 0
-
-        while i < len(path) - 1:
-            j = len(path) - 1
-
-            while j > i + 1:
-                if self._is_segment_safe(result[-1], path[j]):
-                    break
-
-                j -= 1
-
-            result.append(path[j])
-            i = j
-
-        return result
 
     def _bezier_corner_smooth(
         self, path: list[tuple[float, float]]
@@ -438,37 +395,3 @@ class HAPSO:
 
         smoothed.append(path[-1])
         return smoothed
-
-    def _laplacian_smooth(
-        self, path: list[tuple[float, float]]
-    ) -> list[tuple[float, float]]:
-        if len(path) <= 2:
-            return path
-
-        curr_path = path
-
-        for _ in range(self.laplacian_round):
-            new_path = curr_path.copy()
-
-            for i in range(1, len(curr_path) - 1):
-                prev_point = curr_path[i - 1]
-                curr_point = curr_path[i]
-                next_point = curr_path[i + 1]
-
-                candidate = (
-                    (1 - self.laplacian_alpha) * curr_point[0]
-                    + self.laplacian_alpha * 0.5 * (prev_point[0] + next_point[0]),
-                    (1 - self.laplacian_alpha) * curr_point[1]
-                    + self.laplacian_alpha * 0.5 * (prev_point[1] + next_point[1]),
-                )
-
-                if self._is_segment_safe(
-                    prev_point, candidate
-                ) and self._is_segment_safe(candidate, next_point):
-                    new_path[i] = candidate
-
-            new_path[0] = curr_path[0]
-            new_path[-1] = curr_path[-1]
-            curr_path = new_path
-
-        return [round_pos(pt) for pt in curr_path]

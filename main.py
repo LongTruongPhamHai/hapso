@@ -52,7 +52,14 @@ from prm import PRM
 from rrt import RRT
 from rrt_star import RRTStar
 from tkinter import filedialog, messagebox, Tk
-from utils import compute_path_metrics, print_path_metrics
+from utils import (
+    compute_path_metrics,
+    print_all_path_metrics,
+    print_batch_header,
+    print_batch_run_report,
+    print_batch_summary_report,
+    print_path_metrics,
+)
 
 import json
 import pygame
@@ -319,6 +326,8 @@ class App:
         self.drag_end: tuple[float, float] | None = None
         self.current_path: list[tuple[float, float]] | None = None
 
+        self.map_name: str = "N/A"
+
         self.algorithm_names = [
             "RRT",
             "RRT-Star",
@@ -344,6 +353,10 @@ class App:
         )
         print(f"[INIT] Window size: {WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         print(f"[INIT] Ready. Press [?] or check menu for commands.\n")
+
+    @staticmethod
+    def _now_str() -> str:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def run(self) -> None:
         while self.running:
@@ -542,6 +555,7 @@ class App:
         self.grid_map.start = None
         self.grid_map.goal = None
         self.current_path = None
+        self.map_name = "N/A"
 
         self._stop_simulation()
         print("[MAP] Map cleared")
@@ -572,6 +586,7 @@ class App:
                 return
 
             self.grid_map = loaded
+            self.map_name = file_path.stem
             self.current_path = None
             self.all_paths = {}
             self._stop_simulation()
@@ -606,6 +621,7 @@ class App:
             with open(filename, "w", encoding="utf-8") as f:
                 json.dump(self._grid_map_to_dict(self.grid_map), f, indent=2)
 
+            self.map_name = Path(filename).stem
             print(f"[EXPORT] SUCCESS - Map saved to: {filename}")
             print(f"[EXPORT] Map size: {self.grid_map.width}x{self.grid_map.height}")
 
@@ -686,11 +702,7 @@ class App:
             print("[ALGORITHM] ERROR - Start and goal positions must be set")
             return
 
-        print("-" * 120)
-        print(f"[ALGORITHM] Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"[ALGORITHM] Running: {self.selected_algorithm}")
-        print(f"[ALGORITHM] Start: {self.grid_map.start}, Goal: {self.grid_map.goal}")
-
+        run_start_time = self._now_str()
         t_start = time.perf_counter()
 
         if self.selected_algorithm != "All":
@@ -720,12 +732,12 @@ class App:
             case "All":
                 self.all_paths = {}
                 self.all_path_metrics = {}
+                algo_start_times: dict[str, str] = {}
+                algo_end_times: dict[str, str] = {}
 
                 for name in self.algorithm_names:
                     if name == "All":
                         continue
-
-                    print(f"[ALGORITHM:All] Running: {name}")
 
                     if name == "RRT":
                         planner = RRT(self.grid_map)
@@ -746,9 +758,11 @@ class App:
                         self.all_paths[name] = []
                         continue
 
+                    algo_start_times[name] = self._now_str()
                     algo_t_start = time.perf_counter()
                     path = planner.plan()
                     algo_elapsed = time.perf_counter() - algo_t_start
+                    algo_end_times[name] = self._now_str()
 
                     self.all_paths[name] = path or []
                     self.all_path_metrics[name] = {
@@ -766,33 +780,36 @@ class App:
                 self._stop_simulation()
 
         elapsed = time.perf_counter() - t_start
+        run_end_time = self._now_str()
 
         if self.selected_algorithm == "All":
-            print_path_metrics(self.all_path_metrics)
-            print("[ALGORITHM:All] Completed all planners")
+            print_all_path_metrics(
+                self.all_path_metrics,
+                self.all_paths,
+                map_name=self.map_name,
+                start_time=run_start_time,
+                end_time=run_end_time,
+                algo_start_times=algo_start_times,
+                algo_end_times=algo_end_times,
+            )
 
         else:
-            if self.current_path:
-                print(
-                    f"[ALGORITHM] SUCCESS | Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-                print(f"[ALGORITHM] PATH: {self.current_path}")
+            metrics = compute_path_metrics(
+                self.current_path or [],
+                self.selected_algorithm,
+                self.grid_map,
+                self.min_clearance,
+                self.collision_penalty,
+            )[self.selected_algorithm]
+            metrics["Execution time"] = elapsed
 
-                metrics = compute_path_metrics(
-                    self.current_path,
-                    self.selected_algorithm,
-                    self.grid_map,
-                    self.min_clearance,
-                    self.collision_penalty,
-                )[self.selected_algorithm]
-                metrics["Execution time"] = elapsed
-                print_path_metrics({self.selected_algorithm: metrics})
-
-            else:
-                print(
-                    f"[ALGORITHM] FAILED - No path found | Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-                print(f"[ALGORITHM] Execution time: {elapsed:.4f}s")
+            print_path_metrics(
+                {self.selected_algorithm: metrics},
+                map_name=self.map_name,
+                start_time=run_start_time,
+                end_time=run_end_time,
+                path=self.current_path,
+            )
 
     def _open_batch_test_dialog(self) -> None:
         dialog = BatchTestDialog(self.tk_root)
@@ -816,10 +833,13 @@ class App:
         if run_count < 1:
             return
 
-        print(f"\n{'='*60}")
-        print(f"[BATCH] Starting batch test: {run_count} runs")
-        print(f"[BATCH] Algorithm: {self.selected_algorithm}")
-        print(f"{'='*60}")
+        batch_start_time = self._now_str()
+        print_batch_header(
+            self.selected_algorithm,
+            self.map_name,
+            batch_start_time,
+            run_count,
+        )
 
         successful_runs = 0
         total_time = 0.0
@@ -850,10 +870,13 @@ class App:
             if not self.running:
                 break
 
-            print(f"[BATCH] Run {run_idx+1}/{run_count}...", end=" ", flush=True)
+            print(f"[BATCH] ALGORITHM REPORT ({run_idx + 1}/{run_count})")
+
+            run_start_time = self._now_str()
             t0 = time.perf_counter()
             self._run_selected_algorithm()
             run_time = time.perf_counter() - t0
+            run_end_time = self._now_str()
             total_time += run_time
 
             curr_path = list(self.current_path) if self.current_path else []
@@ -888,6 +911,8 @@ class App:
                     "TOTAL_FITNESS": fitness,
                     "Execution_Time_s": run_time,
                     "Path": json.dumps(curr_path),
+                    "_start": run_start_time,
+                    "_end": run_end_time,
                 }
 
                 if (
@@ -915,10 +940,24 @@ class App:
                     "TOTAL_FITNESS": None,
                     "Execution_Time_s": run_time,
                     "Path": "",
+                    "_start": run_start_time,
+                    "_end": run_end_time,
                 }
-                print(f"No valid path found ({run_time:.4f}s)")
 
             run_records.append(record)
+
+            print_batch_run_report(
+                run_idx=run_idx + 1,
+                run_count=run_count,
+                algo_name=self.selected_algorithm,
+                map_name=self.map_name,
+                start_time=run_start_time,
+                end_time=run_end_time,
+                success=is_success,
+                path=curr_path,
+                metrics=metrics if is_success else None,
+                run_time=run_time,
+            )
 
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
@@ -992,22 +1031,20 @@ class App:
         out_file = output_dir / f"{timestamp}_{algo_safe}.xlsx"
         wb.save(out_file)
 
-        print(f"{'='*60}")
-        print(f"[BATCH] Results:")
-        print(f"[BATCH]   Total runs:        {run_count}")
-        print(f"[BATCH]   Successful:        {successful_runs}/{run_count}")
-        print(f"[BATCH]   Success rate:      {successful_runs/run_count*100:.1f}%")
-        print(f"[BATCH]   Avg path length:   {avg_len:.2f} waypoints")
-        print(f"[BATCH]   Avg fitness:       {avg_fitness:.4f}")
-        print(f"[BATCH]   Avg time:          {avg_time:.4f}s")
-        print(f"[BATCH]   Total time:        {total_time:.4f}s")
-        print(f"[BATCH]   Excel:             {out_file}")
+        batch_end_time = self._now_str()
 
-        if best_run:
-            print(
-                f"[BATCH]   Best run: {best_run['Run_ID']} | Fitness = {best_run['TOTAL_FITNESS']:.4f}"
-            )
-        print(f"{'='*60}\n")
+        print_batch_summary_report(
+            algo_name=self.selected_algorithm,
+            map_name=self.map_name,
+            batch_start_time=batch_start_time,
+            batch_end_time=batch_end_time,
+            run_count=run_count,
+            successful_runs=successful_runs,
+            total_time=total_time,
+            excel_path=str(out_file),
+            best_run=best_run,
+            run_records=run_records,
+        )
 
         msg = (
             (
