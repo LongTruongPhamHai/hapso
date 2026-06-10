@@ -24,6 +24,7 @@ def _ensure_out_dir(out_dir: str) -> None:
 
 def plot_stochastic_inertia_weight(
     max_iterations: int = 100,
+    fix_weight: float = 0.7,
     weight_max: float = 0.9,
     weight_min: float = 0.4,
     noise_scale: float = 0.1,
@@ -33,6 +34,8 @@ def plot_stochastic_inertia_weight(
 ) -> None:
     style = style or PlotStyle()
     iterations = np.arange(0, max_iterations)
+
+    fix_weight_line = np.full(max_iterations, fix_weight)
 
     linear_weight = weight_max - (
         (weight_max - weight_min) * iterations / max_iterations
@@ -44,7 +47,9 @@ def plot_stochastic_inertia_weight(
     )
 
     plt.figure(figsize=style.figsize, dpi=style.dpi)
-    plt.plot(iterations, linear_weight, "r--", label="Giảm tuyến tính (Standard PSO)")
+    plt.plot(
+        iterations, fix_weight_line, "r--", label="Trọng số cố định (Standard PSO)"
+    )
     plt.plot(iterations, stochastic_weight, "b-", label="Quán tính ngẫu nhiên (SIW)")
     plt.xlabel("Vòng lặp (t)")
     plt.ylabel("Hệ số quán tính (w)")
@@ -225,62 +230,6 @@ def plot_convergence_curve(
     plt.close()
 
 
-def plot_visibility_shortcutting(
-    out_path: str | None = None,
-    style: PlotStyle | None = None,
-) -> None:
-    style = style or PlotStyle(figsize=(7.2, 4.5))
-
-    raw_path = np.array([[1.5, 2.5], [3.5, 3.5], [3.5, 6.5], [5.5, 7.5], [9.5, 7.5]])
-    shortcut_path = np.array([[1.5, 2.5], [3.5, 6.5], [9.5, 7.5]])
-
-    fig, ax = plt.subplots(figsize=style.figsize, dpi=style.dpi)
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(0, 11)
-    ax.set_ylim(0, 9)
-    ax.set_xticks(np.arange(0, 12, 1))
-    ax.set_yticks(np.arange(0, 10, 1))
-    ax.grid(True, linestyle=":", linewidth=0.8, alpha=0.7)
-
-    obstacles = [(4, 4), (5, 4), (6, 4), (4, 5), (5, 5), (6, 5)]
-    for idx, (ox, oy) in enumerate(obstacles):
-        rect = plt.Rectangle((ox, oy), 1, 1, color="gray", alpha=0.6)
-        ax.add_patch(rect)
-        if idx == 0:
-            rect.set_label("Vật cản")
-
-    ax.plot(
-        raw_path[:, 0], raw_path[:, 1], "r--o", alpha=0.5, label="Quỹ đạo thô ban đầu"
-    )
-    ax.plot(
-        shortcut_path[:, 0],
-        shortcut_path[:, 1],
-        "b-o",
-        linewidth=2,
-        label="Sau khi loại bỏ điểm thừa",
-    )
-
-    ax.annotate(
-        "Điểm nút thừa",
-        xy=(3.5, 3.5),
-        xytext=(1.6, 4.4),
-        arrowprops=dict(facecolor="black", arrowstyle="->", linestyle=":"),
-    )
-
-    ax.set_xlabel("Trục X")
-    ax.set_ylabel("Trục Y")
-    # ax.set_title("Tối ưu hóa tầm nhìn trực diện (Visibility Shortcutting)")
-    ax.legend()
-    ax.grid(True, linestyle=style.grid_style)
-
-    if out_path:
-        _ensure_out_dir(os.path.dirname(out_path))
-        fig.savefig(out_path, bbox_inches="tight")
-    else:
-        plt.show()
-    plt.close(fig)
-
-
 def plot_bezier_corner_smoothing(
     blend_ratio: float = 0.3,
     out_path: str | None = None,
@@ -350,54 +299,6 @@ def plot_bezier_corner_smoothing(
     plt.close(fig)
 
 
-def plot_laplacian_smoothing(
-    alpha: float = 0.5,
-    out_path: str | None = None,
-    style: PlotStyle | None = None,
-) -> None:
-    style = style or PlotStyle(figsize=(7.2, 4.5))
-
-    base_x = np.linspace(1.0, 10.0, 8)
-    base_y = np.array([2.0, 4.5, 3.2, 6.0, 4.8, 7.0, 5.5, 6.0])
-
-    smoothed_y = base_y.copy()
-    for i in range(1, len(base_y) - 1):
-        smoothed_y[i] = (1 - alpha) * base_y[i] + alpha * 0.5 * (
-            base_y[i - 1] + base_y[i + 1]
-        )
-
-    fig, ax = plt.subplots(figsize=style.figsize, dpi=style.dpi)
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(0, 11)
-    ax.set_ylim(0, 9)
-    ax.set_xticks(np.arange(0, 12, 1))
-    ax.set_yticks(np.arange(0, 10, 1))
-    ax.grid(True, linestyle=":", linewidth=0.8, alpha=0.7)
-    ax.plot(base_x, base_y, "r--o", alpha=0.6, label="Trước khi lọc")
-    ax.plot(base_x, smoothed_y, "g-s", linewidth=2, label="Sau khi lọc Laplacian")
-
-    for i in range(1, len(base_y) - 1):
-        ax.annotate(
-            "",
-            xy=(base_x[i], smoothed_y[i]),
-            xytext=(base_x[i], base_y[i]),
-            arrowprops=dict(arrowstyle="->", color="purple", lw=1.2),
-        )
-
-    ax.set_xlabel("Trục X")
-    ax.set_ylabel("Trục Y")
-    # ax.set_title("Làm mượt Laplacian")
-    ax.legend()
-    ax.grid(True, linestyle=style.grid_style)
-
-    if out_path:
-        _ensure_out_dir(os.path.dirname(out_path))
-        fig.savefig(out_path, bbox_inches="tight")
-    else:
-        plt.show()
-    plt.close(fig)
-
-
 def generate_all_plots(out_dir: str = r"data/visualization") -> None:
     _ensure_out_dir(out_dir)
     plot_stochastic_inertia_weight(
@@ -406,13 +307,9 @@ def generate_all_plots(out_dir: str = r"data/visualization") -> None:
     plot_tvac(out_path=os.path.join(out_dir, "tvac.png"))
     plot_sobl(out_path=os.path.join(out_dir, "sobl.png"))
     plot_convergence_curve(out_path=os.path.join(out_dir, "convergence_curve.png"))
-    plot_visibility_shortcutting(
-        out_path=os.path.join(out_dir, "visibility_shortcutting.png")
-    )
     plot_bezier_corner_smoothing(
         out_path=os.path.join(out_dir, "bezier_corner_smoothing.png")
     )
-    plot_laplacian_smoothing(out_path=os.path.join(out_dir, "laplacian_smoothing.png"))
 
 
 if __name__ == "__main__":
