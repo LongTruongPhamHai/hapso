@@ -603,6 +603,13 @@ class App:
             if self.grid_map.goal:
                 print(f"[IMPORT] Goal position: {self.grid_map.goal}")
 
+            obstacle_count = self.grid_map.get_obstacle_count()
+            total_cells = self.grid_map.width * self.grid_map.height
+            obstacle_ratio = round(obstacle_count / total_cells * 100)
+            print(
+                f"[IMPORT] Obstacle count: {obstacle_count} / {total_cells} ({obstacle_ratio}%)"
+            )
+
         except Exception as e:
             print(f"[IMPORT] ERROR - {str(e)}")
 
