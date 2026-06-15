@@ -52,6 +52,7 @@ from prm import PRM
 from pso import PSO
 from rrt import RRT
 from rrt_star import RRTStar
+from save_results import save_run_results
 from tkinter import filedialog, messagebox, Tk
 from utils import (
     compute_path_metrics,
@@ -348,6 +349,8 @@ class App:
 
         self.all_paths: dict[str, list[tuple[float, float]]] = {}
 
+        self._last_hapso: HAPSO | None = None
+
         self._recalc_layout()
 
         print(
@@ -470,6 +473,31 @@ class App:
 
         elif event.key == pygame.K_SPACE:
             self._run_selected_algorithm()
+
+            cost_history = (
+                self._last_hapso.cost_history if self._last_hapso is not None else []
+            )
+            try:
+                run_dir = save_run_results(
+                    algorithm_name=self.selected_algorithm,
+                    path=self.current_path or [],
+                    metrics=compute_path_metrics(
+                        self.current_path or [],
+                        self.selected_algorithm,
+                        self.grid_map,
+                        self.min_clearance,
+                        self.collision_penalty,
+                    )[self.selected_algorithm],
+                    cost_history=cost_history,
+                    map_name=self.map_name,
+                )
+                print(f"[SAVE] Results saved → {run_dir}")
+
+            except Exception as exc:
+                print(f"[SAVE] WARNING – could not save results: {exc}")
+
+            finally:
+                self._last_hapso = None
 
         elif event.key == pygame.K_r:
             self._reset_result()
@@ -739,7 +767,9 @@ class App:
                 self._stop_simulation()
 
             case "HAPSO":
-                self.current_path = HAPSO(self.grid_map).plan()
+                hapso = HAPSO(self.grid_map)
+                self.current_path = hapso.plan()
+                self._last_hapso = hapso
                 self._stop_simulation()
 
             case "All":
@@ -792,6 +822,24 @@ class App:
                         "Execution time (s)": algo_elapsed,
                     }
 
+                    algo_cost_history = (
+                        planner.cost_history if isinstance(planner, HAPSO) else []
+                    )
+                    try:
+                        run_dir = save_run_results(
+                            algorithm_name=name,
+                            path=path or [],
+                            metrics=self.all_path_metrics[name],
+                            cost_history=algo_cost_history,
+                            map_name=self.map_name,
+                            start_time=algo_start_times[name],
+                            end_time=algo_end_times[name],
+                        )
+                        print(f"[SAVE] {name} results saved → {run_dir}")
+
+                    except Exception as exc:
+                        print(f"[SAVE] WARNING – could not save {name} results: {exc}")
+
                 self.current_path = None
                 self._stop_simulation()
 
@@ -826,6 +874,27 @@ class App:
                 end_time=run_end_time,
                 path=self.current_path,
             )
+
+            # cost_history = (
+            #     self._last_hapso.cost_history if self._last_hapso is not None else []
+            # )
+            # try:
+            #     run_dir = save_run_results(
+            #         algorithm_name=self.selected_algorithm,
+            #         path=self.current_path or [],
+            #         metrics=metrics,
+            #         cost_history=cost_history,
+            #         map_name=self.map_name,
+            #         start_time=run_start_time,
+            #         end_time=run_end_time,
+            #     )
+            #     print(f"[SAVE] Results saved → {run_dir}")
+
+            # except Exception as exc:
+            #     print(f"[SAVE] WARNING – could not save results: {exc}")
+
+            # finally:
+            #     self._last_hapso = None
 
     def _open_batch_test_dialog(self) -> None:
         dialog = BatchTestDialog(self.tk_root)
@@ -864,10 +933,19 @@ class App:
         run_records: list[dict] = []
         best_run: dict | None = None
 
-        output_dir = (
-            Path(__file__).resolve().parent / "data" / "results" / "batch_tests"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_algo = "".join(
+            c if (c.isalnum() or c in " _") else "_" for c in self.selected_algorithm
+        ).replace(" ", "_")
+        batch_root = (
+            Path(__file__).resolve().parent
+            / "data"
+            / "results"
+            / f"{safe_algo}_{timestamp}_batch"
         )
-        output_dir.mkdir(parents=True, exist_ok=True)
+        batch_root.mkdir(parents=True, exist_ok=True)
+
+        output_dir = batch_root
 
         for run_idx in range(run_count):
             for ev in pygame.event.get():
@@ -942,6 +1020,7 @@ class App:
                     best_run = {**record, "path": curr_path}
 
             else:
+                metrics = {}
                 record = {
                     "Run_ID": run_idx + 1,
                     "Success": False,
@@ -961,6 +1040,30 @@ class App:
                 }
 
             run_records.append(record)
+
+            individual_cost_history = (
+                self._last_hapso.cost_history
+                if self._last_hapso is not None and self.selected_algorithm == "HAPSO"
+                else []
+            )
+            try:
+                run_dir = save_run_results(
+                    algorithm_name=self.selected_algorithm,
+                    path=curr_path,
+                    metrics=metrics,
+                    cost_history=individual_cost_history,
+                    map_name=self.map_name,
+                    start_time=run_start_time,
+                    end_time=run_end_time,
+                    base_dir=str(batch_root / f"run_{run_idx + 1:03d}"),
+                )
+                print(f"[SAVE] Run {run_idx + 1} saved → {run_dir}")
+
+            except Exception as exc:
+                print(f"[SAVE] WARNING – run {run_idx + 1} save failed: {exc}")
+
+            finally:
+                self._last_hapso = None
 
             print_batch_run_report(
                 run_idx=run_idx + 1,
@@ -1040,11 +1143,7 @@ class App:
         ]:
             ws_summary.append(list(row))
 
-        algo_safe = "".join(
-            c if (c.isalnum() or c in " _") else "_" for c in self.selected_algorithm
-        ).replace(" ", "_")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_file = output_dir / f"{timestamp}_{algo_safe}.xlsx"
+        out_file = batch_root / "batch_summary.xlsx"
         wb.save(out_file)
 
         batch_end_time = self._now_str()
@@ -1070,10 +1169,10 @@ class App:
                 f"Avg fitness: {avg_fitness:.4f}\n"
                 f"Avg time: {avg_time:.4f} s\n"
                 f"Best run: {best_run['Run_ID']}\n"
-                f"Excel: {out_file}"
+                f"Results: {batch_root}"
             )
             if best_run
-            else (f"Runs: {run_count}\nNo valid path was found.\nExcel: {out_file}")
+            else (f"Runs: {run_count}\nNo valid path was found.\nResults: {batch_root}")
         )
         messagebox.showinfo("Batch Test", msg)
 

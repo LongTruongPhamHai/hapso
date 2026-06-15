@@ -452,14 +452,16 @@ def print_batch_summary_report(
     time_vals = _series("Execution_Time_s")
     fit_vals = _series("TOTAL_FITNESS")
 
-    def _stats(vals: list[float]) -> tuple:
+    def _stats(vals: list[float], higher_is_better: bool = False) -> tuple:
         if not vals:
             return ("-", "-", "-", "-", "-")
-        best_v = min(vals)
-        worst_v = max(vals)
+
+        best_v = max(vals) if higher_is_better else min(vals)
+        worst_v = min(vals) if higher_is_better else max(vals)
         mean_v = sum(vals) / len(vals)
         med_v = median(vals)
         std_v = stdev(vals) if len(vals) > 1 else 0.0
+
         return (best_v, worst_v, mean_v, med_v, std_v)
 
     failed_runs = run_count - successful_runs
@@ -476,6 +478,7 @@ def print_batch_summary_report(
     def _stat_row(key: str, stats: tuple) -> None:
         best_v, worst_v, mean_v, med_v, std_v = stats
         line = f"{key:<{16}}"
+
         for v in (best_v, worst_v, mean_v, med_v, std_v):
             line += f"| {_fmt(v):<{col}}"
         print(line)
@@ -507,7 +510,7 @@ def print_batch_summary_report(
     _stat_row("Result", result_stats)
     _stat_row("Total distance", _stats(dist_vals))
     _stat_row("Average angle", _stats(angle_vals))
-    _stat_row("Min clearance", _stats(clear_vals))
+    _stat_row("Min clearance", _stats(clear_vals, higher_is_better=True))
     _stat_row("Execution time", _stats(time_vals))
     _stat_row("TOTAL FITNESS", _stats(fit_vals))
 

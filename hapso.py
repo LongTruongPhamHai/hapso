@@ -107,6 +107,11 @@ class HAPSO:
         self.bezier_blend_ratio = bezier_blend_ratio
         self.bezier_n_points = bezier_n_points
 
+        # Stores gbest cost per global iteration after the last plan() call.
+        # Each entry is the minimum gbest_fitness across all segments at that
+        # iteration index.  Callers can read this after plan() returns.
+        self.cost_history: list[float] = []
+
     def plan(self) -> Optional[list[tuple[float, float]]]:
         start = self.start
         goal = self.goal
@@ -122,13 +127,15 @@ class HAPSO:
             return None
 
         if start == goal:
+            self.cost_history = []
             return [start, goal]
 
         initial_path = self._run_astar()
         if initial_path is None:
+            self.cost_history = []
             return None
 
-        pso_path = self._pso_optimize_path(initial_path)
+        pso_path, self.cost_history = self._pso_optimize_path(initial_path)
         smooth_path = self._smooth_path(pso_path)
         smooth_path.append(goal)
 
@@ -139,21 +146,44 @@ class HAPSO:
 
     def _pso_optimize_path(
         self, path: list[tuple[float, float]]
-    ) -> list[tuple[float, float]]:
+    ) -> tuple[list[tuple[float, float]], list[float]]:
+        """Optimize waypoints with PSO.
+
+        Returns
+        -------
+        optimized_path : list of waypoints
+        cost_history   : gbest cost per iteration (merged across all segments)
+        """
         if len(path) <= 2:
-            return path
+            return path, []
 
         optimized = [path[0]]
+        # Collect per-segment histories; we merge them by taking the minimum
+        # gbest across segments at each shared iteration index.
+        all_segment_histories: list[list[float]] = []
 
         for i in range(1, len(path) - 1):
             prev_point = optimized[-1]
             next_point = path[i + 1]
 
             particles = self._init_particles(prev_point, next_point)
-            best_pos = self._run_pso_segment(particles, prev_point, next_point)
+            best_pos, seg_history = self._run_pso_segment(
+                particles, prev_point, next_point
+            )
             optimized.append(round_pos(best_pos))
+            all_segment_histories.append(seg_history)
 
-        return optimized
+        # Merge: at each iteration index keep the best (min) cost across segments
+        if not all_segment_histories:
+            return optimized, []
+
+        max_len = max(len(h) for h in all_segment_histories)
+        merged: list[float] = []
+        for idx in range(max_len):
+            vals = [h[idx] for h in all_segment_histories if idx < len(h)]
+            merged.append(min(vals))
+
+        return optimized, merged
 
     def _init_particles(
         self, prev_point: tuple[float, float], next_point: tuple[float, float]
@@ -217,10 +247,19 @@ class HAPSO:
         particles: list[dict],
         prev_point: tuple[float, float],
         next_point: tuple[float, float],
-    ) -> tuple[float, float]:
+    ) -> tuple[tuple[float, float], list[float]]:
+        """Run PSO for one path segment.
+
+        Returns
+        -------
+        gbest_pos    : best position found
+        cost_history : gbest fitness recorded at each iteration
+        """
         gbest = min(particles, key=lambda p: p["best_fitness"])
         gbest_pos = gbest["best_pos"]
         gbest_fitness = gbest["best_fitness"]
+
+        cost_history: list[float] = [gbest_fitness]  # iteration 0 = initial best
 
         if self.use_sobl:
             lb_x = min(prev_point[0], next_point[0]) - self.sobl_margin
@@ -284,6 +323,9 @@ class HAPSO:
                     gbest_fitness = candidate["best_fitness"]
                     gbest_pos = candidate["best_pos"]
 
+            # Record gbest after this iteration (monotonically non-increasing)
+            cost_history.append(gbest_fitness)
+
             if gbest_fitness < prev_gbest_fitness - 1e-6:
                 stagnation_count = 0
 
@@ -292,7 +334,7 @@ class HAPSO:
                 if stagnation_count >= self.patience:
                     break
 
-        return gbest_pos
+        return gbest_pos, cost_history
 
     def _eval_fitness(
         self,
