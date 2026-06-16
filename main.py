@@ -1,10 +1,6 @@
 from astar import Astar
 from config.colors import (
     BLACK,
-    DARK,
-    DARKEST,
-    DARKER,
-    DARK,
     MEDIUM,
     LIGHT,
     WHITE,

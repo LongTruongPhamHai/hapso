@@ -1,7 +1,4 @@
 BLACK: tuple[int, int, int] = (0, 0, 0)
-DARKEST: tuple[int, int, int] = (20, 20, 20)
-DARKER: tuple[int, int, int] = (50, 50, 50)
-DARK: tuple[int, int, int] = (90, 90, 90)
 MEDIUM: tuple[int, int, int] = (140, 140, 140)
 LIGHT: tuple[int, int, int] = (200, 200, 200)
 WHITE: tuple[int, int, int] = (255, 255, 255)
@@ -13,3 +10,6 @@ GREEN: tuple[int, int, int] = (0, 255, 0)
 BLUE: tuple[int, int, int] = (0, 127, 255)
 INDIGO: tuple[int, int, int] = (75, 0, 130)
 VIOLET: tuple[int, int, int] = (148, 0, 211)
+
+CHART_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+CHART_HATCHES = ["", "//", "xx", ".."]

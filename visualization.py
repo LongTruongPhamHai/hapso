@@ -1,13 +1,32 @@
 from __future__ import annotations
+from config.colors import CHART_COLORS, CHART_HATCHES
 from dataclasses import dataclass
-from grid_map import GridMap
-from typing import Iterable, Tuple
+from typing import Dict, List, Tuple
 
+import datetime
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 import os
 
 plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
+
+MAP_NAME = "KB02-CL"
+COMPARISON_TABLE = """Thuật toán
+Giá trị trung bình	RRT*	PRM	A*	HAPSO
+Độ dài đường đi	59.3859	41.8508	55.1127	50.7023
+Góc quay trung bình	31.8131	12.702	18.0	6.9699
+Khoảng cách an toàn 	1.1508	0.4418	1.4142	1.0453
+Thời gian tính toán	0.1969	0.2208	0.0346	1.2786
+Hàm đánh giá	0.7888	10	0.6818	0.6734
+"""
+METRIC_FILENAME_MAP: Dict[str, str] = {
+    "Độ dài đường đi": "path_length",
+    "Góc quay trung bình": "average_turning_angle",
+    "Khoảng cách an toàn": "safety_clearance",
+    "Thời gian tính toán": "computation_time",
+    "Hàm đánh giá": "evaluation_function",
+}
 
 
 @dataclass
@@ -22,13 +41,132 @@ def _ensure_out_dir(out_dir: str) -> None:
         os.makedirs(out_dir, exist_ok=True)
 
 
+def _parse_comparison_table(raw: str) -> Tuple[List[str], Dict[str, List[float]]]:
+    lines = [ln.rstrip() for ln in raw.strip().splitlines() if ln.strip()]
+
+    header_idx = 0
+    algorithms: List[str] = []
+
+    for i, line in enumerate(lines):
+        parts = line.split("\t")
+
+        if len(parts) >= 3:
+            algorithms = [p.strip() for p in parts[1:] if p.strip()]
+            header_idx = i
+            break
+
+    data: Dict[str, List[float]] = {}
+    for line in lines[header_idx + 1 :]:
+        parts = line.split("\t")
+
+        if len(parts) < 2:
+            continue
+
+        metric = parts[0].strip()
+        values: List[float] = []
+
+        for v in parts[1:]:
+            v = v.strip()
+            if v:
+                try:
+                    values.append(float(v))
+
+                except ValueError:
+                    pass
+
+        if metric and len(values) == len(algorithms):
+            data[metric] = values
+
+    return algorithms, data
+
+
+def plot_algorithm_comparison(
+    raw_table: str = COMPARISON_TABLE,
+    map_name: str = MAP_NAME,
+    out_base_dir: str = "data/results/charts",
+    style: PlotStyle | None = None,
+) -> None:
+    if not map_name:
+        print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
+        return
+
+    style = style or PlotStyle(figsize=(7.0, 4.0))
+    algorithms, data = _parse_comparison_table(raw_table)
+
+    if not algorithms or not data:
+        print("[VISUALIZATION] Failed to parse data from the table.")
+        return
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir = os.path.join(out_base_dir, f"{map_name}_{timestamp}")
+    _ensure_out_dir(out_dir)
+
+    x = np.arange(len(algorithms))
+    bar_width = 0.55 / max(len(algorithms) - 1, 1) * len(algorithms)
+    bar_width = min(bar_width, 0.65)
+
+    colors = CHART_COLORS[: len(algorithms)]
+    hatches = CHART_HATCHES[: len(algorithms)]
+
+    for metric, values in data.items():
+        fig, ax = plt.subplots(figsize=style.figsize, dpi=style.dpi)
+
+        bars = ax.bar(
+            x,
+            values,
+            width=bar_width,
+            color=colors,
+            edgecolor="black",
+            linewidth=0.8,
+        )
+        for bar, hatch in zip(bars, hatches):
+            bar.set_hatch(hatch)
+
+        for bar, val in zip(bars, values):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                bar.get_height() + max(values) * 0.015,
+                f"{val:.4g}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(algorithms, fontsize=11)
+        ax.set_ylabel("Giá trị trung bình", fontsize=11)
+        # ax.set_title(metric, fontsize=13, fontweight="bold")
+        ax.set_ylim(0, max(values) * 1.18)
+        ax.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
+        ax.set_axisbelow(True)
+
+        legend_handles = [
+            mpatches.Patch(
+                facecolor=c, edgecolor="black", hatch=h, label=alg, linewidth=0.8
+            )
+            for alg, c, h in zip(algorithms, colors, hatches)
+        ]
+        ax.legend(handles=legend_handles, fontsize=9, loc="upper left")
+
+        fig.tight_layout()
+
+        file_stem = METRIC_FILENAME_MAP.get(metric, metric.lower().replace(" ", "_"))
+        out_path = os.path.join(out_dir, f"{file_stem}.png")
+        fig.savefig(out_path, bbox_inches="tight")
+        plt.close(fig)
+
+        print(f"Saved: {out_path}")
+
+    print(f"[VISUALIZATION] Completed — {len(data)} charts saved to '{out_dir}'")
+
+
 def plot_stochastic_inertia_weight(
     max_iterations: int = 100,
     weight_max: float = 0.9,
     weight_min: float = 0.4,
     noise_scale: float = 0.1,
     seed: int = 42,
-    out_path: str | None = None,
+    out_path: str = r"data/results/improved",
     style: PlotStyle | None = None,
 ) -> None:
     style = style or PlotStyle()
@@ -65,7 +203,7 @@ def plot_tvac(
     space_max_value: float = 100.0,
     global_best: Tuple[float, float] = (50.0, 50.0),
     seed: int = 10,
-    out_path: str | None = None,
+    out_path: str = r"data/results/improved",
     style: PlotStyle | None = None,
 ) -> None:
     style = style or PlotStyle(figsize=(11.0, 4.8))
@@ -124,7 +262,7 @@ def plot_tvac(
 
 def plot_bezier_corner_smoothing(
     blend_ratio: float = 0.3,
-    out_path: str | None = None,
+    out_path: str = r"data/results/improved",
     style: PlotStyle | None = None,
 ) -> None:
     style = style or PlotStyle(figsize=(7.2, 4.5))
@@ -179,7 +317,6 @@ def plot_bezier_corner_smoothing(
 
     ax.set_xlabel("Trục X")
     ax.set_ylabel("Trục Y")
-    # ax.set_title("Đường cong Bezier")
     ax.legend()
     ax.grid(True, linestyle=style.grid_style)
 
@@ -191,16 +328,14 @@ def plot_bezier_corner_smoothing(
     plt.close(fig)
 
 
-def generate_all_plots(out_dir: str = r"data/visualization") -> None:
-    _ensure_out_dir(out_dir)
-    plot_stochastic_inertia_weight(
-        out_path=os.path.join(out_dir, "stochastic_inertia.png")
-    )
-    plot_tvac(out_path=os.path.join(out_dir, "tvac.png"))
-    plot_bezier_corner_smoothing(
-        out_path=os.path.join(out_dir, "bezier_corner_smoothing.png")
-    )
-
-
 if __name__ == "__main__":
-    generate_all_plots()
+
+    # plot_stochastic_inertia_weight(out_path=os.path.join("stochastic_inertia.png"))
+
+    # plot_tvac(out_path=os.path.join("tvac.png"))
+
+    # plot_bezier_corner_smoothing(out_path=os.path.join("bezier_corner_smoothing.png"))
+
+    plot_algorithm_comparison()
+
+    # pass
