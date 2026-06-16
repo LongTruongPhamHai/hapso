@@ -12,8 +12,7 @@ import os
 plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
 MAP_NAME = "KB02-CL"
-COMPARISON_TABLE = """Thuật toán
-Giá trị trung bình	RRT*	PRM	A*	HAPSO
+COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
 Độ dài đường đi	59.3859	41.8508	55.1127	50.7023
 Góc quay trung bình	31.8131	12.702	18.0	6.9699
 Khoảng cách an toàn 	1.1508	0.4418	1.4142	1.0453
@@ -90,7 +89,7 @@ def plot_algorithm_comparison(
         print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
         return
 
-    style = style or PlotStyle(figsize=(7.0, 4.0))
+    style = style or PlotStyle(figsize=(7.0, 5.5))
     algorithms, data = _parse_comparison_table(raw_table)
 
     if not algorithms or not data:
@@ -129,24 +128,24 @@ def plot_algorithm_comparison(
                 f"{val:.4g}",
                 ha="center",
                 va="bottom",
-                fontsize=9,
+                fontsize=20,
             )
 
         ax.set_xticks(x)
-        ax.set_xticklabels(algorithms, fontsize=11)
-        ax.set_ylabel("Giá trị trung bình", fontsize=11)
-        # ax.set_title(metric, fontsize=13, fontweight="bold")
+        ax.set_xticklabels(algorithms, fontsize=20)
+        ax.set_ylabel("Giá trị trung bình", fontsize=20)
+        ax.set_title(metric, fontsize=20, fontweight="bold")
         ax.set_ylim(0, max(values) * 1.18)
         ax.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
         ax.set_axisbelow(True)
 
-        legend_handles = [
-            mpatches.Patch(
-                facecolor=c, edgecolor="black", hatch=h, label=alg, linewidth=0.8
-            )
-            for alg, c, h in zip(algorithms, colors, hatches)
-        ]
-        ax.legend(handles=legend_handles, fontsize=9, loc="upper left")
+        # legend_handles = [
+        #     mpatches.Patch(
+        #         facecolor=c, edgecolor="black", hatch=h, label=alg, linewidth=0.8
+        #     )
+        #     for alg, c, h in zip(algorithms, colors, hatches)
+        # ]
+        # ax.legend(handles=legend_handles, fontsize=13, loc="lower left")
 
         fig.tight_layout()
 
