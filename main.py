@@ -964,7 +964,7 @@ class App:
                     "Run_ID": run_idx + 1,
                     "Found_Path": bool(curr_path),
                     "Success": False,
-                    "Path_Length": 0,
+                    "Path_Length": len(curr_path),
                     "Total_Distance": metrics["Total distance"],
                     "Total_Waypoint": metrics["Total waypoint"],
                     "Total_Angle": metrics["Total angle"],
@@ -974,7 +974,7 @@ class App:
                     "Min_Clearance": metrics["Min clearance"],
                     "TOTAL_FITNESS": metrics["TOTAL FITNESS"],
                     "Execution_Time_s": run_time,
-                    "Path": "",
+                    "Path": json.dumps(curr_path),
                     "_start": run_start_time,
                     "_end": run_end_time,
                 }
@@ -1103,16 +1103,26 @@ class App:
             run_records=run_records,
         )
 
-        msg = (
-            f"Runs: {run_count}\n"
-            f"Success: {successful_runs}/{run_count}\n"
-            f"Avg path length: {avg_len:.2f}\n"
-            f"Avg fitness: {avg_fitness:.4f}\n"
-            f"Avg time: {avg_time:.4f} s\n"
-            f"Best run: {best_run['Run_ID'] if best_run else 'N/A'}\n"
-            f"{'(best failed path)' if successful_runs == 0 else ''}\n"
-            f"Excel: {out_file}"
-        )
+        if successful_runs > 0:
+            msg = (
+                f"Runs: {run_count}\n"
+                f"Success: {successful_runs}/{run_count}\n"
+                f"Avg path length: {avg_len:.2f}\n"
+                f"Avg fitness: {avg_fitness:.4f}\n"
+                f"Avg time: {avg_time:.4f} s\n"
+                f"Best run: {best_run['Run_ID']}\n"
+                f"Excel: {out_file}"
+            )
+        else:
+            msg = (
+                f"Runs: {run_count}\n"
+                f"Success: 0/{run_count}\n"
+                f"No successful path was found.\n"
+                f"Displaying the best failed path.\n"
+                f"Best run: {best_run['Run_ID'] if best_run else 'N/A'}\n"
+                f"Excel: {out_file}"
+            )
+
         messagebox.showinfo("Batch Test", msg)
 
         for ev in pygame.event.get():
