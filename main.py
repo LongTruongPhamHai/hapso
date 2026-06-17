@@ -45,8 +45,6 @@ from hapso import HAPSO
 from openpyxl import Workbook
 from pathlib import Path
 from prm import PRM
-from pso import PSO
-from rrt import RRT
 from rrt_star import RRTStar
 from tkinter import filedialog, messagebox, Tk
 from utils import (
@@ -316,7 +314,7 @@ class App:
 
         self.running = True
         self.mode = "Free"
-        self.selected_algorithm = "A-Star"
+        self.selected_algorithm = "HAPSO"
 
         self.is_dragging = False
         self.drag_start: tuple[float, float] | None = None
@@ -326,11 +324,9 @@ class App:
         self.map_name: str = "N/A"
 
         self.algorithm_names = [
-            "RRT",
             "RRT-Star",
             "PRM",
             "A-Star",
-            "PSO",
             "HAPSO",
             "All",
         ]
@@ -741,10 +737,6 @@ class App:
             self.all_paths = {}
 
         match self.selected_algorithm:
-            case "RRT":
-                self.current_path = RRT(self.grid_map).plan()
-                self._stop_simulation()
-
             case "RRT-Star":
                 self.current_path = RRTStar(self.grid_map).plan()
                 self._stop_simulation()
@@ -754,11 +746,7 @@ class App:
                 self._stop_simulation()
 
             case "A-Star":
-                self.current_path = Astar(self.grid_map).plan()
-                self._stop_simulation()
-
-            case "PSO":
-                self.current_path = PSO(self.grid_map).plan()
+                self.current_path = Astar(self.grid_map, min_clearance=0.0).plan()
                 self._stop_simulation()
 
             case "HAPSO":
@@ -777,20 +765,14 @@ class App:
                     if name == "All":
                         continue
 
-                    if name == "RRT":
-                        planner = RRT(self.grid_map)
-
-                    elif name == "RRT-Star":
+                    if name == "RRT-Star":
                         planner = RRTStar(self.grid_map)
 
                     elif name == "PRM":
                         planner = PRM(self.grid_map)
 
                     elif name == "A-Star":
-                        planner = Astar(self.grid_map)
-
-                    elif name == "PSO":
-                        planner = PSO(self.grid_map)
+                        planner = Astar(self.grid_map, min_clearance=0.0)
 
                     elif name == "HAPSO":
                         planner = HAPSO(self.grid_map)
@@ -936,6 +918,7 @@ class App:
             Path(__file__).resolve().parent
             / "data"
             / "results"
+            / "batch_tests"
             / f"{safe_algo}_{timestamp}_batch"
         )
         batch_root.mkdir(parents=True, exist_ok=True)

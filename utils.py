@@ -514,7 +514,7 @@ def save_run_results(
     map_name: str = "N/A",
     start_time: str = "N/A",
     end_time: str = "N/A",
-    base_dir: str = "data/results",
+    base_dir: str = "data/results/simulation",
 ) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_name = _safe(algorithm_name)
