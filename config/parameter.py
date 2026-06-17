@@ -1,7 +1,11 @@
 GRID_MAP_HEIGHT: int = 30
 GRID_MAP_WIDTH: int = 30
 
+DANGER_CLEARANCE: float = 0.7071
 MIN_CLEARANCE: float = 1.0
+SAFETY_PENALTY: float = 5.0
+COLLISION_PENALTY: float = 10.0
+
 MARGIN_CELL: int = 3
 ROUND_NUM: int = 2
 
@@ -15,7 +19,6 @@ PSO_WEIGHT: float = 0.7
 PSO_COGNITIVE_COEFF: float = 1.0
 PSO_SOCIAL_COEFF: float = 1.0
 PSO_VMAX_K: float = 0.1
-PSO_COLLISION_PENALTY: float = 10
 
 PSO_USE_SIW: bool = True
 PSO_W_MIN: float = 0.4

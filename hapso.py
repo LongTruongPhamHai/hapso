@@ -1,6 +1,7 @@
 from astar import Astar
 from config.parameter import (
     MIN_CLEARANCE,
+    COLLISION_PENALTY,
     PSO_PATIENCE,
     PSO_N_PARTICLES,
     PSO_MAX_INIT_ATTEMPTS,
@@ -8,7 +9,6 @@ from config.parameter import (
     PSO_WEIGHT,
     PSO_COGNITIVE_COEFF,
     PSO_SOCIAL_COEFF,
-    PSO_COLLISION_PENALTY,
     PSO_VMAX_K,
     PSO_USE_SIW,
     PSO_W_MAX,
@@ -45,6 +45,7 @@ class HAPSO:
         self,
         grid_map: GridMap,
         min_clearance: float = MIN_CLEARANCE,
+        collision_penalty: float = COLLISION_PENALTY,
         patience: int = PSO_PATIENCE,
         n_particles: int = PSO_N_PARTICLES,
         max_init_attempts: int = PSO_MAX_INIT_ATTEMPTS,
@@ -52,7 +53,6 @@ class HAPSO:
         weight: float = PSO_WEIGHT,
         cognitive_coeff: float = PSO_COGNITIVE_COEFF,
         social_coeff: float = PSO_SOCIAL_COEFF,
-        collision_penalty: float = PSO_COLLISION_PENALTY,
         vmax_k: float = PSO_VMAX_K,
         use_siw: bool = PSO_USE_SIW,
         w_min: float = PSO_W_MIN,
@@ -76,6 +76,7 @@ class HAPSO:
         self.goal = self.grid_map.goal
 
         self.min_clearance = float(min_clearance)
+        self.collision_penalty = collision_penalty
 
         self.patience = patience
         self.n_particles = n_particles
@@ -84,7 +85,6 @@ class HAPSO:
         self.weight = weight
         self.cognitive_coeff = cognitive_coeff
         self.social_coeff = social_coeff
-        self.collision_penalty = collision_penalty
         self.vmax_k = vmax_k
 
         self.use_siw = use_siw
@@ -107,11 +107,6 @@ class HAPSO:
         self.bezier_blend_ratio = bezier_blend_ratio
         self.bezier_n_points = bezier_n_points
 
-        # Stores gbest cost per global iteration after the last plan() call.
-        # Each entry is the minimum gbest_fitness across all segments at that
-        # iteration index.  Callers can read this after plan() returns.
-        self.cost_history: list[float] = []
-
     def plan(self) -> Optional[list[tuple[float, float]]]:
         start = self.start
         goal = self.goal
@@ -127,15 +122,13 @@ class HAPSO:
             return None
 
         if start == goal:
-            self.cost_history = []
             return [start, goal]
 
         initial_path = self._run_astar()
         if initial_path is None:
-            self.cost_history = []
             return None
 
-        pso_path, self.cost_history = self._pso_optimize_path(initial_path)
+        pso_path = self._pso_optimize_path(initial_path)
         smooth_path = self._smooth_path(pso_path)
         smooth_path.append(goal)
 
@@ -146,44 +139,21 @@ class HAPSO:
 
     def _pso_optimize_path(
         self, path: list[tuple[float, float]]
-    ) -> tuple[list[tuple[float, float]], list[float]]:
-        """Optimize waypoints with PSO.
-
-        Returns
-        -------
-        optimized_path : list of waypoints
-        cost_history   : gbest cost per iteration (merged across all segments)
-        """
+    ) -> list[tuple[float, float]]:
         if len(path) <= 2:
-            return path, []
+            return path
 
         optimized = [path[0]]
-        # Collect per-segment histories; we merge them by taking the minimum
-        # gbest across segments at each shared iteration index.
-        all_segment_histories: list[list[float]] = []
 
         for i in range(1, len(path) - 1):
             prev_point = optimized[-1]
             next_point = path[i + 1]
 
             particles = self._init_particles(prev_point, next_point)
-            best_pos, seg_history = self._run_pso_segment(
-                particles, prev_point, next_point
-            )
+            best_pos = self._run_pso_segment(particles, prev_point, next_point)
             optimized.append(round_pos(best_pos))
-            all_segment_histories.append(seg_history)
 
-        # Merge: at each iteration index keep the best (min) cost across segments
-        if not all_segment_histories:
-            return optimized, []
-
-        max_len = max(len(h) for h in all_segment_histories)
-        merged: list[float] = []
-        for idx in range(max_len):
-            vals = [h[idx] for h in all_segment_histories if idx < len(h)]
-            merged.append(min(vals))
-
-        return optimized, merged
+        return optimized
 
     def _init_particles(
         self, prev_point: tuple[float, float], next_point: tuple[float, float]
@@ -247,19 +217,10 @@ class HAPSO:
         particles: list[dict],
         prev_point: tuple[float, float],
         next_point: tuple[float, float],
-    ) -> tuple[tuple[float, float], list[float]]:
-        """Run PSO for one path segment.
-
-        Returns
-        -------
-        gbest_pos    : best position found
-        cost_history : gbest fitness recorded at each iteration
-        """
+    ) -> tuple[float, float]:
         gbest = min(particles, key=lambda p: p["best_fitness"])
         gbest_pos = gbest["best_pos"]
         gbest_fitness = gbest["best_fitness"]
-
-        cost_history: list[float] = [gbest_fitness]  # iteration 0 = initial best
 
         if self.use_sobl:
             lb_x = min(prev_point[0], next_point[0]) - self.sobl_margin
@@ -323,9 +284,6 @@ class HAPSO:
                     gbest_fitness = candidate["best_fitness"]
                     gbest_pos = candidate["best_pos"]
 
-            # Record gbest after this iteration (monotonically non-increasing)
-            cost_history.append(gbest_fitness)
-
             if gbest_fitness < prev_gbest_fitness - 1e-6:
                 stagnation_count = 0
 
@@ -334,7 +292,7 @@ class HAPSO:
                 if stagnation_count >= self.patience:
                     break
 
-        return gbest_pos, cost_history
+        return gbest_pos
 
     def _eval_fitness(
         self,
@@ -376,16 +334,6 @@ class HAPSO:
             curr_path = self._bezier_corner_smooth(curr_path)
 
         return curr_path
-
-    def _is_segment_safe(
-        self,
-        start_point: tuple[float, float],
-        end_point: tuple[float, float],
-    ) -> bool:
-        return (
-            min_distance_line_to_obstacle(start_point, end_point, self.grid_map)
-            > self.min_clearance
-        )
 
     def _bezier_corner_smooth(
         self, path: list[tuple[float, float]]
@@ -436,10 +384,20 @@ class HAPSO:
                 )
                 bezier_pts.append(round_pos((bx, by)))
 
-            is_safe = self._is_segment_safe(smoothed[-1], bezier_pts[0])
+            is_safe = (
+                min_distance_line_to_obstacle(
+                    smoothed[-1], bezier_pts[0], self.grid_map
+                )
+                > self.min_clearance
+            )
             if is_safe:
                 for k in range(len(bezier_pts) - 1):
-                    if not self._is_segment_safe(bezier_pts[k], bezier_pts[k + 1]):
+                    if not (
+                        min_distance_line_to_obstacle(
+                            smoothed[-1], bezier_pts[0], self.grid_map
+                        )
+                        > self.min_clearance
+                    ):
                         is_safe = False
                         break
 

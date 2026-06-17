@@ -1,5 +1,12 @@
 from __future__ import annotations
-from config.parameter import MARGIN_CELL, ROUND_NUM
+from config.parameter import (
+    COLLISION_PENALTY,
+    DANGER_CLEARANCE,
+    MARGIN_CELL,
+    MIN_CLEARANCE,
+    ROUND_NUM,
+    SAFETY_PENALTY,
+)
 from datetime import datetime
 from grid_map import GridMap
 from math import atan2, ceil, degrees, floor, sqrt
@@ -169,8 +176,10 @@ def min_distance_path_to_obstacle(
 def compute_fitness(
     path: list[tuple[float, float]],
     grid_map: GridMap,
-    min_clearance: float,
-    collision_penalty: float,
+    danger_clearance: float = DANGER_CLEARANCE,
+    min_clearance: float = MIN_CLEARANCE,
+    collision_penalty: float = COLLISION_PENALTY,
+    safety_penalty: float = SAFETY_PENALTY,
     reference_metrics: dict | None = None,
 ) -> float:
     total_dist = compute_path_length(path)
@@ -178,8 +187,11 @@ def compute_fitness(
     max_angle = compute_max_angle(path)
     min_dist = min_distance_path_to_obstacle(path, grid_map)
 
-    if min_dist < min_clearance:
+    if min_dist < danger_clearance:
         return collision_penalty
+
+    elif min_dist < min_clearance:
+        return safety_penalty
 
     if reference_metrics is not None:
         norm_dist = total_dist / (reference_metrics.get("distance", 1.0) + 1e-6)
@@ -211,7 +223,7 @@ def total_fitness(
     reference_metrics: dict | None = None,
 ) -> float:
     return compute_fitness(
-        path, grid_map, min_clearance, collision_penalty, reference_metrics
+        path=path, grid_map=grid_map, reference_metrics=reference_metrics
     )
 
 
@@ -256,17 +268,20 @@ def compute_path_metrics(
     collision_penalty: float,
     reference_metrics: dict | None = None,
 ) -> dict:
+    min_dist = min_distance_path_to_obstacle(path, grid_map)
+    is_successful = True if path and min_dist > DANGER_CLEARANCE else False
     return {
         algorithm_name: {
+            "Result": is_successful,
             "Total distance": compute_path_length(path),
             "Total waypoint": len(path),
             "Total angle": compute_total_angle(path),
             "Min angle": compute_min_angle(path),
             "Max angle": compute_max_angle(path),
             "Average angle": compute_avg_angle(path),
-            "Min clearance": min_distance_path_to_obstacle(path, grid_map),
+            "Min clearance": min_dist,
             "TOTAL FITNESS": compute_fitness(
-                path, grid_map, min_clearance, collision_penalty, reference_metrics
+                path=path, grid_map=grid_map, reference_metrics=reference_metrics
             ),
         }
     }
@@ -329,6 +344,7 @@ def print_path_metrics(
     print("-" * 120)
     print("FITNESS / PATH METRICS:")
 
+    _print_metric_row("Result", metrics.get("Result"))
     _print_metric_row("Total distance", metrics.get("Total distance"))
     _print_metric_row("Average angle", metrics.get("Average angle"))
     _print_metric_row("Min clearance", metrics.get("Min clearance"))
@@ -528,9 +544,6 @@ def save_run_results(
         run_dir, algorithm_name, path, metrics, map_name, start_time, end_time
     )
 
-    if cost_history:
-        _save_convergence_png(run_dir, algorithm_name, cost_history, map_name)
-
     return run_dir
 
 
@@ -598,35 +611,3 @@ def _save_metrics_xlsx(
         ws_sum.append([k, round(v, 4) if isinstance(v, float) else v])
 
     wb.save(run_dir / "metrics.xlsx")
-
-
-def _save_convergence_png(
-    run_dir: Path,
-    algorithm_name: str,
-    cost_history: list[float],
-    map_name: str,
-) -> None:
-    iterations = list(range(len(cost_history)))
-
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(
-        iterations,
-        cost_history,
-        linewidth=1.5,
-        color="#2563EB",
-        label="Giá trị hàm thích nghi toàn cục",
-    )
-
-    ax.set_title(
-        f"Biểu đồ giá trị hàm mục tiêu {algorithm_name}\nBản đồ: {map_name}",
-        fontsize=12,
-    )
-    ax.set_xlabel("Vòng lặp", fontsize=10)
-    ax.set_ylabel("Giá trị", fontsize=10)
-    ax.legend(fontsize=9)
-    ax.grid(True, linestyle="--", alpha=0.5)
-    fig.tight_layout()
-
-    out = run_dir / "convergence.png"
-    fig.savefig(out, dpi=150)
-    plt.close(fig)
