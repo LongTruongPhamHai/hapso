@@ -11,15 +11,18 @@ import os
 
 plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
-MAP_NAME = "KB02-CL"
+MAP_NAME = "KB02-MZ"
 COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-Độ dài đường đi	59.3859	41.8508	55.1127	50.7023
-Góc quay trung bình	31.8131	12.702	18.0	6.9699
-Khoảng cách an toàn 	1.1508	0.4418	1.4142	1.0453
-Thời gian tính toán	0.1969	0.2208	0.0346	1.2786
-Hàm đánh giá	0.7888	10	0.6818	0.6734
+Tỷ lệ thành công	80.0	0.0	100.0	100.0
+Độ dài đường đi	104.6692	84.1095	84.527	85.9735
+Góc quay trung bình	31.3511	53.4886	15.203	6.6081
+Khoảng cách an toàn 	1.2389	0.4554	0.7071	1.0011
+Thời gian tính toán	0.203	0.2453	0.0048	1.9978
+Hàm đánh giá	1.0907	10	5	0.9366
+
 """
 METRIC_FILENAME_MAP: Dict[str, str] = {
+    "Tỷ lệ thành công": "success_rate",
     "Độ dài đường đi": "path_length",
     "Góc quay trung bình": "average_turning_angle",
     "Khoảng cách an toàn": "safety_clearance",
@@ -33,11 +36,6 @@ class PlotStyle:
     figsize: Tuple[float, float] = (8.0, 4.5)
     grid_style: str = "--"
     dpi: int = 150
-
-
-def _ensure_out_dir(out_dir: str) -> None:
-    if out_dir and not os.path.isdir(out_dir):
-        os.makedirs(out_dir, exist_ok=True)
 
 
 def _parse_comparison_table(raw: str) -> Tuple[List[str], Dict[str, List[float]]]:
@@ -98,7 +96,8 @@ def plot_algorithm_comparison(
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = os.path.join(out_base_dir, f"{map_name}_{timestamp}")
-    _ensure_out_dir(out_dir)
+    if out_dir and not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
 
     x = np.arange(len(algorithms))
     bar_width = 0.55 / max(len(algorithms) - 1, 1) * len(algorithms)
@@ -107,10 +106,24 @@ def plot_algorithm_comparison(
     colors = CHART_COLORS[: len(algorithms)]
     hatches = CHART_HATCHES[: len(algorithms)]
 
-    for metric, values in data.items():
-        fig, ax = plt.subplots(figsize=style.figsize, dpi=style.dpi)
+    success_rates = data["Tỷ lệ thành công"]
 
-        bars = ax.bar(
+    metrics_with_success_rate = {
+        "Độ dài đường đi",
+        "Góc quay trung bình",
+        "Thời gian tính toán",
+        "Khoảng cách an toàn",
+        "Hàm đánh giá",
+    }
+
+    for metric, values in data.items():
+        # ======================================================
+        # CHẾ ĐỘ 1: BIỂU ĐỒ CỘT THÔNG THƯỜNG
+        # ======================================================
+
+        fig, ax1 = plt.subplots(figsize=style.figsize, dpi=style.dpi)
+
+        bars = ax1.bar(
             x,
             values,
             width=bar_width,
@@ -118,12 +131,13 @@ def plot_algorithm_comparison(
             edgecolor="black",
             linewidth=0.8,
         )
+
         for bar, hatch in zip(bars, hatches):
             bar.set_hatch(hatch)
 
         for bar, val in zip(bars, values):
-            ax.text(
-                bar.get_x() + bar.get_width() / 2.0,
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + max(values) * 0.015,
                 f"{val:.4g}",
                 ha="center",
@@ -131,26 +145,78 @@ def plot_algorithm_comparison(
                 fontsize=20,
             )
 
-        ax.set_xticks(x)
-        ax.set_xticklabels(algorithms, fontsize=20)
-        ax.set_ylabel("Giá trị trung bình", fontsize=20)
-        ax.set_title(metric, fontsize=20, fontweight="bold")
-        ax.set_ylim(0, max(values) * 1.18)
-        ax.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
-        ax.set_axisbelow(True)
-
-        # legend_handles = [
-        #     mpatches.Patch(
-        #         facecolor=c, edgecolor="black", hatch=h, label=alg, linewidth=0.8
-        #     )
-        #     for alg, c, h in zip(algorithms, colors, hatches)
-        # ]
-        # ax.legend(handles=legend_handles, fontsize=13, loc="lower left")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(algorithms, fontsize=20)
+        ax1.set_ylabel("Giá trị trung bình", fontsize=20)
+        ax1.set_title(metric, fontsize=20, fontweight="bold")
+        ax1.set_ylim(0, max(values) * 1.18)
+        ax1.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
+        ax1.set_axisbelow(True)
 
         fig.tight_layout()
 
-        file_stem = METRIC_FILENAME_MAP.get(metric, metric.lower().replace(" ", "_"))
-        out_path = os.path.join(out_dir, f"{file_stem}.png")
+        # ======================================================
+        # CHẾ ĐỘ 2: BIỂU ĐỒ DUAL AXIS
+        # ======================================================
+
+        # if metric == "Tỷ lệ thành công":
+        #     continue
+
+        # fig, ax1 = plt.subplots(figsize=style.figsize, dpi=style.dpi)
+        # ax2 = ax1.twinx()
+        #
+        # bars = ax1.bar(
+        #     x,
+        #     values,
+        #     width=bar_width,
+        #     color=colors,
+        #     edgecolor="black",
+        #     linewidth=0.8,
+        # )
+        #
+        # for bar, hatch in zip(bars, hatches):
+        #     bar.set_hatch(hatch)
+        #
+        # for bar, val in zip(bars, values):
+        #     ax1.text(
+        #         bar.get_x() + bar.get_width() / 2,
+        #         bar.get_height() + max(values) * 0.015,
+        #         f"{val:.4g}",
+        #         ha="center",
+        #         va="bottom",
+        #         fontsize=16,
+        #     )
+        #
+        # line = ax2.plot(
+        #     x,
+        #     success_rates,
+        #     marker="o",
+        #     linewidth=2.5,
+        #     color="red",
+        #     label="Tỷ lệ thành công",
+        # )
+        #
+        # ax1.set_xticks(x)
+        # ax1.set_xticklabels(algorithms, fontsize=20)
+        # ax1.set_ylabel(metric, fontsize=20)
+        # ax2.set_ylabel("Tỷ lệ thành công (%)", fontsize=20)
+        # ax2.set_ylim(0, 105)
+        #
+        # ax1.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
+        # ax1.set_axisbelow(True)
+        #
+        # fig.tight_layout()
+
+        file_stem = METRIC_FILENAME_MAP.get(
+            metric,
+            metric.lower().replace(" ", "_"),
+        )
+
+        out_path = os.path.join(
+            out_dir,
+            f"{file_stem}.png",
+        )
+
         fig.savefig(out_path, bbox_inches="tight")
         plt.close(fig)
 
@@ -185,11 +251,13 @@ def plot_stochastic_inertia_weight(
     plt.legend(fontsize=14)
     plt.grid(True, linestyle=style.grid_style)
 
-    if out_path:
-        _ensure_out_dir(os.path.dirname(out_path))
+    if out_path and not os.path.isdir(out_path):
+        os.makedirs(out_path, exist_ok=True)
         plt.savefig(out_path, bbox_inches="tight")
+
     else:
         plt.show()
+
     plt.close()
 
 
@@ -248,11 +316,14 @@ def plot_tvac(
     ax2.legend(fontsize=14)
 
     fig.tight_layout()
-    if out_path:
-        _ensure_out_dir(os.path.dirname(out_path))
+
+    if out_path and not os.path.isdir(out_path):
+        os.makedirs(out_path, exist_ok=True)
         fig.savefig(out_path, bbox_inches="tight")
+
     else:
         plt.show()
+
     plt.close(fig)
 
 
@@ -316,15 +387,19 @@ def plot_bezier_corner_smoothing(
     ax.legend()
     ax.grid(True, linestyle=style.grid_style)
 
-    if out_path:
-        _ensure_out_dir(os.path.dirname(out_path))
+    if out_path and not os.path.isdir(out_path):
+        os.makedirs(out_path, exist_ok=True)
         fig.savefig(out_path, bbox_inches="tight")
+
     else:
         plt.show()
+
     plt.close(fig)
 
 
 if __name__ == "__main__":
+
+    plot_algorithm_comparison()
 
     # plot_stochastic_inertia_weight(out_path=os.path.join("stochastic_inertia.png"))
 
@@ -332,6 +407,4 @@ if __name__ == "__main__":
 
     # plot_bezier_corner_smoothing(out_path=os.path.join("bezier_corner_smoothing.png"))
 
-    # plot_algorithm_comparison()
-
-    pass
+    # pass
