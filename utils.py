@@ -264,12 +264,12 @@ def compute_path_metrics(
     path: list[tuple[float, float]],
     algorithm_name: str,
     grid_map: GridMap,
-    min_clearance: float,
-    collision_penalty: float,
+    danger_clearance: float = DANGER_CLEARANCE,
     reference_metrics: dict | None = None,
 ) -> dict:
     min_dist = min_distance_path_to_obstacle(path, grid_map)
-    is_successful = True if path and min_dist > DANGER_CLEARANCE else False
+    is_successful = True if path and min_dist > danger_clearance else False
+
     return {
         algorithm_name: {
             "Result": is_successful,
@@ -287,22 +287,18 @@ def compute_path_metrics(
     }
 
 
-def calculator_path_metrics(
-    path: list[tuple[float, float]],
-    algorithm_name: str,
-    grid_map: GridMap,
-    min_clearance: float,
-    collision_penalty: float,
-    reference_metrics: dict | None = None,
-) -> dict:
-    return compute_path_metrics(
-        path,
-        algorithm_name,
-        grid_map,
-        min_clearance,
-        collision_penalty,
-        reference_metrics,
-    )
+# def calculator_path_metrics(
+#     path: list[tuple[float, float]],
+#     algorithm_name: str,
+#     grid_map: GridMap,
+#     reference_metrics: dict | None = None,
+# ) -> dict:
+#     return compute_path_metrics(
+#         path=path,
+#         algorithm_name=algorithm_name,
+#         grid_map=grid_map,
+#         reference_metrics=reference_metrics,
+#     )
 
 
 def _fmt(val) -> str:
@@ -329,9 +325,6 @@ def print_path_metrics(
     algo = next(iter(path_metrics))
     metrics = path_metrics[algo]
 
-    success = bool(path) and path is not None
-    result_str = "SUCCESS" if success else "FAILED"
-
     print("=" * 120)
     print("[ALGORITHM] ALGORITHM REPORT")
     print("=" * 120)
@@ -339,7 +332,7 @@ def print_path_metrics(
     print(f"{'Map':<16}: {map_name}")
     print(f"{'Start time':<16}: {start_time}")
     print(f"{'End time':<16}: {end_time}")
-    print(f"{'Result':<16}: {result_str}")
+    print(f"{'Result':<16}: {metrics.get('Result')}")
     # print(f"{'Path':<16}: {path if path else '[]'}")
     print("-" * 120)
     print("FITNESS / PATH METRICS:")
@@ -399,9 +392,7 @@ def print_all_path_metrics(
     print(header)
     print("-" * 120)
 
-    row("Result", lambda a: "SUCCESS" if all_paths.get(a) else "FAILED")
-
-    for metric_key in ("Total distance", "Average angle", "Min clearance"):
+    for metric_key in ("Result", "Total distance", "Average angle", "Min clearance"):
         row(metric_key, lambda a, k=metric_key: all_path_metrics[a].get(k))
 
     row("Start time", lambda a: algo_start_times.get(a, "N/A").split()[1])
@@ -430,9 +421,11 @@ def print_batch_summary_report(
     best_run: dict | None,
     run_records: list[dict],
 ) -> None:
-    def _series(key: str) -> list[float]:
+    def _series(key):
         return [
-            r[key] for r in run_records if r.get("Success") and r.get(key) is not None
+            r[key]
+            for r in run_records
+            if r.get("Found_Path") and r.get(key) is not None
         ]
 
     dist_vals = _series("Total_Distance")

@@ -468,11 +468,9 @@ class App:
                     algorithm_name=self.selected_algorithm,
                     path=self.current_path or [],
                     metrics=compute_path_metrics(
-                        self.current_path or [],
-                        self.selected_algorithm,
-                        self.grid_map,
-                        self.min_clearance,
-                        self.collision_penalty,
+                        path=self.current_path or [],
+                        algorithm_name=self.selected_algorithm,
+                        grid_map=self.grid_map,
                     )[self.selected_algorithm],
                     map_name=self.map_name,
                 )
@@ -782,11 +780,9 @@ class App:
                     self.all_paths[name] = path or []
                     self.all_path_metrics[name] = {
                         **compute_path_metrics(
-                            path or [],
-                            name,
-                            self.grid_map,
-                            self.min_clearance,
-                            self.collision_penalty,
+                            path=path or [],
+                            algorithm_name=name,
+                            grid_map=self.grid_map,
                         )[name],
                         "Execution time (s)": algo_elapsed,
                     }
@@ -824,11 +820,9 @@ class App:
 
         else:
             metrics = compute_path_metrics(
-                self.current_path or [],
-                self.selected_algorithm,
-                self.grid_map,
-                self.min_clearance,
-                self.collision_penalty,
+                path=self.current_path or [],
+                algorithm_name=self.selected_algorithm,
+                grid_map=self.grid_map,
             )[self.selected_algorithm]
             metrics["Execution time"] = elapsed
 
@@ -875,7 +869,8 @@ class App:
         path_lengths = []
         fitness_values = []
         run_records: list[dict] = []
-        best_run: dict | None = None
+        best_success_run = None
+        best_failed_run = None
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_algo = "".join(
@@ -919,26 +914,26 @@ class App:
             total_time += run_time
 
             curr_path = list(self.current_path) if self.current_path else []
-            is_success = bool(curr_path) and curr_path[-1] == self.grid_map.goal
+
+            metrics = compute_path_metrics(
+                path=curr_path,
+                algorithm_name=self.selected_algorithm,
+                grid_map=self.grid_map,
+            )[self.selected_algorithm]
+            is_success = metrics["Result"]
 
             if is_success:
                 successful_runs += 1
                 path_len = len(curr_path)
                 path_lengths.append(path_len)
 
-                metrics = compute_path_metrics(
-                    curr_path,
-                    self.selected_algorithm,
-                    self.grid_map,
-                    self.min_clearance,
-                    self.collision_penalty,
-                )[self.selected_algorithm]
                 fitness = metrics["TOTAL FITNESS"]
                 fitness_values.append(fitness)
 
                 record = {
                     "Run_ID": run_idx + 1,
-                    "Success": True,
+                    "Found_Path": bool(curr_path),
+                    "Success": is_success,
                     "Path_Length": path_len,
                     "Total_Distance": metrics["Total distance"],
                     "Total_Waypoint": metrics["Total waypoint"],
@@ -955,33 +950,49 @@ class App:
                 }
 
                 if (
-                    best_run is None
-                    or fitness < best_run["TOTAL_FITNESS"]
+                    best_success_run is None
+                    or fitness < best_success_run["TOTAL_FITNESS"]
                     or (
-                        fitness == best_run["TOTAL_FITNESS"]
-                        and path_len < best_run["Path_Length"]
+                        fitness == best_success_run["TOTAL_FITNESS"]
+                        and path_len < best_success_run["Path_Length"]
                     )
                 ):
-                    best_run = {**record, "path": curr_path}
+                    best_success_run = {**record, "path": curr_path}
 
             else:
                 record = {
                     "Run_ID": run_idx + 1,
+                    "Found_Path": bool(curr_path),
                     "Success": False,
                     "Path_Length": 0,
-                    "Total_Distance": None,
-                    "Total_Waypoint": None,
-                    "Total_Angle": None,
-                    "Min_Angle": None,
-                    "Max_Angle": None,
-                    "Average_Angle": None,
-                    "Min_Clearance": None,
-                    "TOTAL_FITNESS": None,
+                    "Total_Distance": metrics["Total distance"],
+                    "Total_Waypoint": metrics["Total waypoint"],
+                    "Total_Angle": metrics["Total angle"],
+                    "Min_Angle": metrics["Min angle"],
+                    "Max_Angle": metrics["Max angle"],
+                    "Average_Angle": metrics["Average angle"],
+                    "Min_Clearance": metrics["Min clearance"],
+                    "TOTAL_FITNESS": metrics["TOTAL FITNESS"],
                     "Execution_Time_s": run_time,
                     "Path": "",
                     "_start": run_start_time,
                     "_end": run_end_time,
                 }
+
+                if curr_path:
+                    if (
+                        best_failed_run is None
+                        or metrics["Min clearance"] > best_failed_run["Min_Clearance"]
+                        or (
+                            metrics["Min clearance"] == best_failed_run["Min_Clearance"]
+                            and len(curr_path) < best_failed_run["Path_Length"]
+                        )
+                    ):
+                        best_failed_run = {
+                            **record,
+                            "Path_Length": len(curr_path),
+                            "path": curr_path,
+                        }
 
             run_records.append(record)
 
@@ -1018,6 +1029,8 @@ class App:
 
             if not self.running:
                 break
+
+        best_run = best_success_run if best_success_run is not None else best_failed_run
 
         avg_len = sum(path_lengths) / len(path_lengths) if path_lengths else 0.0
         avg_time = total_time / run_count if run_count else 0.0
@@ -1091,17 +1104,14 @@ class App:
         )
 
         msg = (
-            (
-                f"Runs: {run_count}\n"
-                f"Success: {successful_runs}/{run_count}\n"
-                f"Avg path length: {avg_len:.2f}\n"
-                f"Avg fitness: {avg_fitness:.4f}\n"
-                f"Avg time: {avg_time:.4f} s\n"
-                f"Best run: {best_run['Run_ID']}\n"
-                f"Excel: {out_file}"
-            )
-            if best_run
-            else (f"Runs: {run_count}\nNo valid path was found.\nExcel: {out_file}")
+            f"Runs: {run_count}\n"
+            f"Success: {successful_runs}/{run_count}\n"
+            f"Avg path length: {avg_len:.2f}\n"
+            f"Avg fitness: {avg_fitness:.4f}\n"
+            f"Avg time: {avg_time:.4f} s\n"
+            f"Best run: {best_run['Run_ID'] if best_run else 'N/A'}\n"
+            f"{'(best failed path)' if successful_runs == 0 else ''}\n"
+            f"Excel: {out_file}"
         )
         messagebox.showinfo("Batch Test", msg)
 
