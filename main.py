@@ -48,15 +48,14 @@ from prm import PRM
 from pso import PSO
 from rrt import RRT
 from rrt_star import RRTStar
-from save_results import save_run_results
 from tkinter import filedialog, messagebox, Tk
 from utils import (
     compute_path_metrics,
     print_all_path_metrics,
     print_batch_header,
-    print_batch_run_report,
     print_batch_summary_report,
     print_path_metrics,
+    save_run_results,
 )
 
 import json
@@ -1060,19 +1059,6 @@ class App:
 
             finally:
                 self._last_hapso = None
-
-            print_batch_run_report(
-                run_idx=run_idx + 1,
-                run_count=run_count,
-                algo_name=self.selected_algorithm,
-                map_name=self.map_name,
-                start_time=run_start_time,
-                end_time=run_end_time,
-                success=is_success,
-                path=curr_path,
-                metrics=metrics if is_success else None,
-                run_time=run_time,
-            )
 
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:

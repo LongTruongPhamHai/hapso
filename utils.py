@@ -1,7 +1,18 @@
+from __future__ import annotations
 from config.parameter import MARGIN_CELL, ROUND_NUM
+from datetime import datetime
 from grid_map import GridMap
 from math import atan2, ceil, degrees, floor, sqrt
+from openpyxl import Workbook
+from pathlib import Path
 from statistics import median, stdev
+from typing import Optional
+
+import json
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 
 def round_pos(
@@ -391,44 +402,6 @@ def print_all_path_metrics(
     print("=" * 120)
 
 
-def print_batch_run_report(
-    run_idx: int,
-    run_count: int,
-    algo_name: str,
-    map_name: str,
-    start_time: str,
-    end_time: str,
-    success: bool,
-    path: list[tuple[float, float]],
-    metrics: dict | None,
-    run_time: float,
-) -> None:
-    result_str = "SUCCESS" if success else "FAILED"
-
-    # print("=" * 120)
-    # print(f"[BATCH] ALGORITHM REPORT ({run_idx}/{run_count})")
-
-    # print("-" * 120)
-    # print(f"{'Algorithm':<16}: {algo_name}")
-    # print(f"{'Map':<16}: {map_name}")
-    # print(f"{'Start time':<16}: {start_time}")
-    # print(f"{'End time':<16}: {end_time}")
-    # print(f"{'Result':<16}: {result_str}")
-    # # print(f"{'Path':<16}: {path if path else '[]'}")
-
-    # print("-" * 120)
-    # print("FITNESS / PATH METRICS:")
-    # if metrics:
-    #     _print_metric_row("Total distance", metrics.get("Total distance"))
-    #     _print_metric_row("Average angle", metrics.get("Average angle"))
-    #     _print_metric_row("Min clearance", metrics.get("Min clearance"))
-    #     _print_metric_row("Execution time", run_time)
-    #     _print_metric_row("TOTAL FITNESS", metrics.get("TOTAL FITNESS"))
-
-    # else:
-    #     print("  (no metrics — run failed)")
-
-
 def print_batch_summary_report(
     algo_name: str,
     map_name: str,
@@ -531,3 +504,129 @@ def print_batch_header(
     print(f"{'Start time':<16}: {batch_start_time}")
     print(f"{'Total runs':<16}: {run_count}")
     print("=" * 120)
+
+
+def save_run_results(
+    algorithm_name: str,
+    path: Optional[list[tuple[float, float]]],
+    metrics: dict,
+    cost_history: Optional[list[float]] = None,
+    map_name: str = "N/A",
+    start_time: str = "N/A",
+    end_time: str = "N/A",
+    base_dir: str = "data/results",
+) -> Path:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_name = _safe(algorithm_name)
+    run_dir = Path(base_dir) / f"{safe_name}_{timestamp}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    _save_path_json(
+        run_dir, algorithm_name, path, metrics, map_name, start_time, end_time
+    )
+    _save_metrics_xlsx(
+        run_dir, algorithm_name, path, metrics, map_name, start_time, end_time
+    )
+
+    if cost_history:
+        _save_convergence_png(run_dir, algorithm_name, cost_history, map_name)
+
+    return run_dir
+
+
+def _safe(name: str) -> str:
+    return "".join(c if (c.isalnum() or c == "_") else "_" for c in name)
+
+
+def _save_path_json(
+    run_dir: Path,
+    algorithm_name: str,
+    path: Optional[list[tuple[float, float]]],
+    metrics: dict,
+    map_name: str,
+    start_time: str,
+    end_time: str,
+) -> None:
+    payload = {
+        "algorithm": algorithm_name,
+        "map": map_name,
+        "start_time": start_time,
+        "end_time": end_time,
+        "success": bool(path),
+        "waypoint_count": len(path) if path else 0,
+        "path": [list(p) for p in path] if path else [],
+        "metrics": {
+            k: (v if not isinstance(v, float) else round(v, 4))
+            for k, v in metrics.items()
+        },
+    }
+
+    out = run_dir / "path.json"
+    with out.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+
+def _save_metrics_xlsx(
+    run_dir: Path,
+    algorithm_name: str,
+    path: Optional[list[tuple[float, float]]],
+    metrics: dict,
+    map_name: str,
+    start_time: str,
+    end_time: str,
+) -> None:
+    wb = Workbook()
+
+    ws_sum = wb.active
+    ws_sum.title = "Summary"
+    ws_sum.append(["Field", "Value"])
+
+    for row in [
+        ("Algorithm", algorithm_name),
+        ("Map", map_name),
+        ("Start time", start_time),
+        ("End time", end_time),
+        ("Result", "SUCCESS" if path else "FAILED"),
+        ("Waypoint count", len(path) if path else 0),
+    ]:
+        ws_sum.append(list(row))
+
+    ws_sum.append([])
+    ws_sum.append(["Metric", "Value"])
+
+    for k, v in metrics.items():
+        ws_sum.append([k, round(v, 4) if isinstance(v, float) else v])
+
+    wb.save(run_dir / "metrics.xlsx")
+
+
+def _save_convergence_png(
+    run_dir: Path,
+    algorithm_name: str,
+    cost_history: list[float],
+    map_name: str,
+) -> None:
+    iterations = list(range(len(cost_history)))
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(
+        iterations,
+        cost_history,
+        linewidth=1.5,
+        color="#2563EB",
+        label="Giá trị hàm thích nghi toàn cục",
+    )
+
+    ax.set_title(
+        f"Biểu đồ giá trị hàm mục tiêu {algorithm_name}\nBản đồ: {map_name}",
+        fontsize=12,
+    )
+    ax.set_xlabel("Vòng lặp", fontsize=10)
+    ax.set_ylabel("Giá trị", fontsize=10)
+    ax.legend(fontsize=9)
+    ax.grid(True, linestyle="--", alpha=0.5)
+    fig.tight_layout()
+
+    out = run_dir / "convergence.png"
+    fig.savefig(out, dpi=150)
+    plt.close(fig)

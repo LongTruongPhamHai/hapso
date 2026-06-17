@@ -154,13 +154,11 @@ def plot_algorithm_comparison(
         fig.savefig(out_path, bbox_inches="tight")
         plt.close(fig)
 
-        print(f"Saved: {out_path}")
-
     print(f"[VISUALIZATION] Completed — {len(data)} charts saved to '{out_dir}'")
 
 
 def plot_stochastic_inertia_weight(
-    max_iterations: int = 100,
+    max_iterations: int = 50,
     weight_max: float = 0.9,
     weight_min: float = 0.4,
     noise_scale: float = 0.1,
@@ -182,9 +180,9 @@ def plot_stochastic_inertia_weight(
 
     plt.figure(figsize=style.figsize, dpi=style.dpi)
     plt.plot(iterations, stochastic_weight, "b-", label="Giá trị trọng số quán tính")
-    plt.xlabel("Vòng lặp (t)")
-    plt.ylabel("Trọng số quán tính (w)")
-    plt.legend()
+    plt.xlabel("Vòng lặp (t)", fontsize=16)
+    plt.ylabel("Trọng số quán tính (w)", fontsize=16)
+    plt.legend(fontsize=14)
     plt.grid(True, linestyle=style.grid_style)
 
     if out_path:
@@ -196,7 +194,6 @@ def plot_stochastic_inertia_weight(
 
 
 def plot_tvac(
-    max_iterations: int = 100,
     particle_count: int = 40,
     space_min_value: float = 0.0,
     space_max_value: float = 100.0,
@@ -223,7 +220,7 @@ def plot_tvac(
     ax1.set_xlabel("Không gian X₁", fontsize=16)
     ax1.set_ylabel("Không gian X₂", fontsize=16)
     ax1.grid(True, linestyle=":")
-    ax1.legend()
+    ax1.legend(fontsize=14)
 
     global_best_x, global_best_y = global_best
     late_x = rng.normal(global_best_x, 4, particle_count)
@@ -248,7 +245,7 @@ def plot_tvac(
     ax2.set_xlabel("Không gian X₁", fontsize=16)
     ax2.set_ylabel("Không gian X₂", fontsize=16)
     ax2.grid(True, linestyle=":")
-    ax2.legend()
+    ax2.legend(fontsize=14)
 
     fig.tight_layout()
     if out_path:
@@ -335,6 +332,6 @@ if __name__ == "__main__":
 
     # plot_bezier_corner_smoothing(out_path=os.path.join("bezier_corner_smoothing.png"))
 
-    plot_algorithm_comparison()
+    # plot_algorithm_comparison()
 
-    # pass
+    pass
