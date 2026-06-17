@@ -268,11 +268,26 @@ def compute_path_metrics(
     reference_metrics: dict | None = None,
 ) -> dict:
     min_dist = min_distance_path_to_obstacle(path, grid_map)
-    is_successful = True if path and min_dist > danger_clearance else False
+    is_successful = bool(path) and min_dist > danger_clearance
+
+    if not is_successful:
+        return {
+            algorithm_name: {
+                "Result": False,
+                "Total distance": None,
+                "Total waypoint": None,
+                "Total angle": None,
+                "Min angle": None,
+                "Max angle": None,
+                "Average angle": None,
+                "Min clearance": None,
+                "TOTAL FITNESS": None,
+            }
+        }
 
     return {
         algorithm_name: {
-            "Result": is_successful,
+            "Result": True,
             "Total distance": compute_path_length(path),
             "Total waypoint": len(path),
             "Total angle": compute_total_angle(path),
@@ -281,29 +296,17 @@ def compute_path_metrics(
             "Average angle": compute_avg_angle(path),
             "Min clearance": min_dist,
             "TOTAL FITNESS": compute_fitness(
-                path=path, grid_map=grid_map, reference_metrics=reference_metrics
+                path=path,
+                grid_map=grid_map,
+                reference_metrics=reference_metrics,
             ),
         }
     }
 
 
-# def calculator_path_metrics(
-#     path: list[tuple[float, float]],
-#     algorithm_name: str,
-#     grid_map: GridMap,
-#     reference_metrics: dict | None = None,
-# ) -> dict:
-#     return compute_path_metrics(
-#         path=path,
-#         algorithm_name=algorithm_name,
-#         grid_map=grid_map,
-#         reference_metrics=reference_metrics,
-#     )
-
-
-def _fmt(val) -> str:
-    if val is None or val == "-":
-        return "-"
+def _fmt(val):
+    if val is None:
+        return "N/A"
 
     if isinstance(val, bool):
         return "SUCCESS" if val else "FAILED"
@@ -477,10 +480,9 @@ def print_batch_summary_report(
     print(f"[BATCH] Excel       : {excel_path}")
 
     if best_run:
-        print(
-            f"[BATCH] Best run    : {best_run['Run_ID']} "
-            f"| Fitness = {best_run['TOTAL_FITNESS']:.4f}"
-        )
+        fitness = _fmt(best_run["TOTAL_FITNESS"])
+
+        print(f"[BATCH] Best run    : {best_run['Run_ID']} " f"| Fitness = {fitness}")
     print("-" * 120)
 
     header = f"{'Metrics':<{16}}"

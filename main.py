@@ -928,7 +928,9 @@ class App:
                 path_lengths.append(path_len)
 
                 fitness = metrics["TOTAL FITNESS"]
-                fitness_values.append(fitness)
+
+                if fitness is not None:
+                    fitness_values.append(fitness)
 
                 record = {
                     "Run_ID": run_idx + 1,
@@ -980,11 +982,13 @@ class App:
                 }
 
                 if curr_path:
+                    curr_clearance = metrics["Min clearance"] or 0
+
                     if (
                         best_failed_run is None
-                        or metrics["Min clearance"] > best_failed_run["Min_Clearance"]
+                        or curr_clearance > (best_failed_run["Min_Clearance"] or 0)
                         or (
-                            metrics["Min clearance"] == best_failed_run["Min_Clearance"]
+                            curr_clearance == (best_failed_run["Min_Clearance"] or 0)
                             and len(curr_path) < best_failed_run["Path_Length"]
                         )
                     ):

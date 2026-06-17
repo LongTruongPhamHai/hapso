@@ -13,13 +13,12 @@ plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
 MAP_NAME = "KB02-MZ"
 COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-Tỷ lệ thành công	80.0	0.0	100.0	100.0
-Độ dài đường đi	104.6692	84.1095	84.527	85.9735
-Góc quay trung bình	31.3511	53.4886	15.203	6.6081
-Khoảng cách an toàn 	1.2389	0.4554	0.7071	1.0011
-Thời gian tính toán	0.203	0.2453	0.0048	1.9978
-Hàm đánh giá	1.0907	10	5	0.9366
-
+Tỷ lệ thành công	90.0	0.0	100.0	100.0
+Độ dài đường đi	58.3287	-	43.3553	50.7023
+Góc quay trung bình	31.8871	-	9.8438	6.9699
+Khoảng cách an toàn 	1.166	-	0.7071	1.0453
+Thời gian tính toán	0.2093	0.1984	0.0096	1.2786
+Hàm đánh giá	0.7764	-	5	0.6734
 """
 METRIC_FILENAME_MAP: Dict[str, str] = {
     "Tỷ lệ thành công": "success_rate",
@@ -60,16 +59,19 @@ def _parse_comparison_table(raw: str) -> Tuple[List[str], Dict[str, List[float]]
             continue
 
         metric = parts[0].strip()
-        values: List[float] = []
+        values: List[float | None] = []
 
         for v in parts[1:]:
             v = v.strip()
-            if v:
-                try:
-                    values.append(float(v))
 
-                except ValueError:
-                    pass
+            if not v:
+                values.append(None)
+
+            elif v == "-":
+                values.append(None)
+
+            else:
+                values.append(float(v))
 
         if metric and len(values) == len(algorithms):
             data[metric] = values
@@ -121,91 +123,141 @@ def plot_algorithm_comparison(
         # CHẾ ĐỘ 1: BIỂU ĐỒ CỘT THÔNG THƯỜNG
         # ======================================================
 
-        fig, ax1 = plt.subplots(figsize=style.figsize, dpi=style.dpi)
+        # fig, ax1 = plt.subplots(figsize=style.figsize, dpi=style.dpi)
 
-        bars = ax1.bar(
-            x,
-            values,
-            width=bar_width,
-            color=colors,
-            edgecolor="black",
-            linewidth=0.8,
-        )
+        # # Loại bỏ các giá trị None
+        # valid_x = []
+        # valid_values = []
+        # valid_colors = []
+        # valid_hatches = []
+        # valid_algorithms = []
 
-        for bar, hatch in zip(bars, hatches):
-            bar.set_hatch(hatch)
+        # for i, val in enumerate(values):
+        #     if val is not None:
+        #         valid_x.append(x[i])
+        #         valid_values.append(val)
+        #         valid_colors.append(colors[i])
+        #         valid_hatches.append(hatches[i])
+        #         valid_algorithms.append(algorithms[i])
 
-        for bar, val in zip(bars, values):
-            ax1.text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + max(values) * 0.015,
-                f"{val:.4g}",
-                ha="center",
-                va="bottom",
-                fontsize=20,
-            )
+        # bars = ax1.bar(
+        #     valid_x,
+        #     valid_values,
+        #     width=bar_width,
+        #     color=valid_colors,
+        #     edgecolor="black",
+        #     linewidth=0.8,
+        # )
 
-        ax1.set_xticks(x)
-        ax1.set_xticklabels(algorithms, fontsize=20)
-        ax1.set_ylabel("Giá trị trung bình", fontsize=20)
-        ax1.set_title(metric, fontsize=20, fontweight="bold")
-        ax1.set_ylim(0, max(values) * 1.18)
-        ax1.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
-        ax1.set_axisbelow(True)
+        # for bar, hatch in zip(bars, valid_hatches):
+        #     bar.set_hatch(hatch)
 
-        fig.tight_layout()
+        # max_val = max(valid_values)
+
+        # for bar, val in zip(bars, valid_values):
+        #     ax1.text(
+        #         bar.get_x() + bar.get_width() / 2,
+        #         bar.get_height() + max_val * 0.015,
+        #         f"{val:.4g}",
+        #         ha="center",
+        #         va="bottom",
+        #         fontsize=20,
+        #     )
+
+        # ax1.set_xticks(valid_x)
+        # ax1.set_xticklabels(valid_algorithms, fontsize=20)
+
+        # ax1.set_ylabel("Giá trị trung bình", fontsize=20)
+        # ax1.set_title(metric, fontsize=20, fontweight="bold")
+
+        # ax1.set_ylim(0, max_val * 1.18)
+
+        # ax1.grid(
+        #     True,
+        #     axis="y",
+        #     linestyle=style.grid_style,
+        #     alpha=0.6,
+        # )
+        # ax1.set_axisbelow(True)
+
+        # fig.tight_layout()
 
         # ======================================================
         # CHẾ ĐỘ 2: BIỂU ĐỒ DUAL AXIS
         # ======================================================
 
-        # if metric == "Tỷ lệ thành công":
-        #     continue
+        if metric == "Tỷ lệ thành công":
+            continue
 
-        # fig, ax1 = plt.subplots(figsize=style.figsize, dpi=style.dpi)
-        # ax2 = ax1.twinx()
-        #
-        # bars = ax1.bar(
-        #     x,
-        #     values,
-        #     width=bar_width,
-        #     color=colors,
-        #     edgecolor="black",
-        #     linewidth=0.8,
-        # )
-        #
-        # for bar, hatch in zip(bars, hatches):
-        #     bar.set_hatch(hatch)
-        #
-        # for bar, val in zip(bars, values):
-        #     ax1.text(
-        #         bar.get_x() + bar.get_width() / 2,
-        #         bar.get_height() + max(values) * 0.015,
-        #         f"{val:.4g}",
-        #         ha="center",
-        #         va="bottom",
-        #         fontsize=16,
-        #     )
-        #
-        # line = ax2.plot(
-        #     x,
-        #     success_rates,
-        #     marker="o",
-        #     linewidth=2.5,
-        #     color="red",
-        #     label="Tỷ lệ thành công",
-        # )
-        #
-        # ax1.set_xticks(x)
-        # ax1.set_xticklabels(algorithms, fontsize=20)
-        # ax1.set_ylabel(metric, fontsize=20)
-        # ax2.set_ylabel("Tỷ lệ thành công (%)", fontsize=20)
-        # ax2.set_ylim(0, 105)
-        #
-        # ax1.grid(True, axis="y", linestyle=style.grid_style, alpha=0.6)
-        # ax1.set_axisbelow(True)
-        #
-        # fig.tight_layout()
+        fig, ax1 = plt.subplots(figsize=style.figsize, dpi=style.dpi)
+        ax2 = ax1.twinx()
+
+        # Chỉ giữ các giá trị hợp lệ cho biểu đồ cột
+        valid_x = []
+        valid_values = []
+        valid_colors = []
+        valid_hatches = []
+
+        for i, val in enumerate(values):
+            if val is not None:
+                valid_x.append(x[i])
+                valid_values.append(val)
+                valid_colors.append(colors[i])
+                valid_hatches.append(hatches[i])
+
+        bars = ax1.bar(
+            valid_x,
+            valid_values,
+            width=bar_width,
+            color=valid_colors,
+            edgecolor="black",
+            linewidth=0.8,
+        )
+
+        for bar, hatch in zip(bars, valid_hatches):
+            bar.set_hatch(hatch)
+
+        max_val = max(valid_values)
+
+        for bar, val in zip(bars, valid_values):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max_val * 0.015,
+                f"{val:.4g}",
+                ha="center",
+                va="bottom",
+                fontsize=16,
+            )
+
+        # Đường tỷ lệ thành công vẫn dùng tất cả thuật toán
+        line = ax2.plot(
+            x,
+            success_rates,
+            marker="o",
+            linewidth=2.5,
+            color="red",
+            label="Tỷ lệ thành công",
+        )
+
+        # Trục x vẫn hiện đủ các thuật toán
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(algorithms, fontsize=20)
+
+        ax1.set_ylabel(metric, fontsize=20)
+        ax2.set_ylabel("Tỷ lệ thành công (%)", fontsize=20)
+
+        ax1.set_ylim(0, max_val * 1.18)
+        ax2.set_ylim(0, 105)
+
+        ax1.grid(
+            True,
+            axis="y",
+            linestyle=style.grid_style,
+            alpha=0.6,
+        )
+        ax1.set_axisbelow(True)
+
+        fig.tight_layout()
 
         file_stem = METRIC_FILENAME_MAP.get(
             metric,
