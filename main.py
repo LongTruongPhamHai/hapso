@@ -461,26 +461,23 @@ class App:
             self._open_algo_dialog()
 
         elif event.key == pygame.K_SPACE:
-            self._run_selected_algorithm()
+            result = self._run_selected_algorithm()
 
-            try:
-                run_dir = save_run_results(
-                    algorithm_name=self.selected_algorithm,
-                    path=self.current_path or [],
-                    metrics=compute_path_metrics(
-                        path=self.current_path or [],
+            if result is not None:
+                algo_elapsed, metrics = result
+
+                try:
+                    run_dir = save_run_results(
                         algorithm_name=self.selected_algorithm,
-                        grid_map=self.grid_map,
-                    )[self.selected_algorithm],
-                    map_name=self.map_name,
-                )
-                print(f"[SAVE] Results saved → {run_dir}")
+                        path=self.current_path or [],
+                        metrics=metrics,
+                        map_name=self.map_name,
+                    )
 
-            except Exception as exc:
-                print(f"[SAVE] WARNING – could not save results: {exc}")
+                    print(f"[SAVE] Results saved → {run_dir}")
 
-            finally:
-                self._last_hapso = None
+                except Exception as exc:
+                    print(f"[SAVE] WARNING – could not save results: {exc}")
 
         elif event.key == pygame.K_r:
             self._reset_result()
@@ -717,32 +714,51 @@ class App:
             self.selected_algorithm = self.algorithm_names[dialog.result]
             print(f"[MENU] Algorithm selected: {self.selected_algorithm}")
 
-    def _run_selected_algorithm(self) -> None:
+    def _run_selected_algorithm(self) -> tuple[float, dict] | None:
         if self.grid_map.start is None or self.grid_map.goal is None:
             print("[ALGORITHM] ERROR - Start and goal positions must be set")
             return
 
         run_start_time = self._now_str()
-        t_start = time.perf_counter()
 
         if self.selected_algorithm != "All":
             self.all_paths = {}
 
         match self.selected_algorithm:
             case "RRT-Star":
-                self.current_path = RRTStar(self.grid_map).plan()
+                planner = RRTStar(self.grid_map)
+
+                algo_t0 = time.perf_counter()
+                self.current_path = planner.plan()
+                algo_elapsed = time.perf_counter() - algo_t0
+
                 self._stop_simulation()
 
             case "PRM":
-                self.current_path = PRM(self.grid_map).plan()
+                planner = PRM(self.grid_map)
+
+                algo_t0 = time.perf_counter()
+                self.current_path = planner.plan()
+                algo_elapsed = time.perf_counter() - algo_t0
+
                 self._stop_simulation()
 
             case "A-Star":
-                self.current_path = Astar(self.grid_map, min_clearance=0.0).plan()
+                planner = Astar(self.grid_map, min_clearance=0.0)
+
+                algo_t0 = time.perf_counter()
+                self.current_path = planner.plan()
+                algo_elapsed = time.perf_counter() - algo_t0
+
                 self._stop_simulation()
 
             case "HAPSO":
-                self.current_path = HAPSO(self.grid_map).plan()
+                planner = HAPSO(self.grid_map)
+
+                algo_t0 = time.perf_counter()
+                self.current_path = planner.plan()
+                algo_elapsed = time.perf_counter() - algo_t0
+
                 self._stop_simulation()
 
             case "All":
@@ -784,7 +800,7 @@ class App:
                             algorithm_name=name,
                             grid_map=self.grid_map,
                         )[name],
-                        "Execution time (s)": algo_elapsed,
+                        "Execution time": algo_elapsed,
                     }
 
                     try:
@@ -804,7 +820,6 @@ class App:
                 self.current_path = None
                 self._stop_simulation()
 
-        elapsed = time.perf_counter() - t_start
         run_end_time = self._now_str()
 
         if self.selected_algorithm == "All":
@@ -817,22 +832,24 @@ class App:
                 algo_start_times=algo_start_times,
                 algo_end_times=algo_end_times,
             )
+            return None
 
-        else:
-            metrics = compute_path_metrics(
-                path=self.current_path or [],
-                algorithm_name=self.selected_algorithm,
-                grid_map=self.grid_map,
-            )[self.selected_algorithm]
-            metrics["Execution time"] = elapsed
+        metrics = compute_path_metrics(
+            path=self.current_path or [],
+            algorithm_name=self.selected_algorithm,
+            grid_map=self.grid_map,
+        )[self.selected_algorithm]
+        metrics["Execution time"] = algo_elapsed
 
-            print_path_metrics(
-                {self.selected_algorithm: metrics},
-                map_name=self.map_name,
-                start_time=run_start_time,
-                end_time=run_end_time,
-                path=self.current_path,
-            )
+        print_path_metrics(
+            {self.selected_algorithm: metrics},
+            map_name=self.map_name,
+            start_time=run_start_time,
+            end_time=run_end_time,
+            path=self.current_path,
+        )
+
+        return algo_elapsed, metrics
 
     def _open_batch_test_dialog(self) -> None:
         dialog = BatchTestDialog(self.tk_root)
@@ -907,19 +924,18 @@ class App:
             print(f"[BATCH] ALGORITHM REPORT ({run_idx + 1}/{run_count})")
 
             run_start_time = self._now_str()
-            t0 = time.perf_counter()
-            self._run_selected_algorithm()
-            run_time = time.perf_counter() - t0
+            result = self._run_selected_algorithm()
             run_end_time = self._now_str()
+
+            if result is None:
+                continue
+
+            run_time, metrics = result
+
             total_time += run_time
 
             curr_path = list(self.current_path) if self.current_path else []
 
-            metrics = compute_path_metrics(
-                path=curr_path,
-                algorithm_name=self.selected_algorithm,
-                grid_map=self.grid_map,
-            )[self.selected_algorithm]
             is_success = metrics["Result"]
 
             if is_success:
@@ -958,8 +974,16 @@ class App:
                         fitness == best_success_run["TOTAL_FITNESS"]
                         and path_len < best_success_run["Path_Length"]
                     )
+                    or (
+                        fitness == best_success_run["TOTAL_FITNESS"]
+                        and path_len == best_success_run["Path_Length"]
+                        and run_time < best_success_run["Execution_Time_s"]
+                    )
                 ):
-                    best_success_run = {**record, "path": curr_path}
+                    best_success_run = {
+                        **record,
+                        "path": curr_path,
+                    }
 
             else:
                 record = {
@@ -994,7 +1018,6 @@ class App:
                     ):
                         best_failed_run = {
                             **record,
-                            "Path_Length": len(curr_path),
                             "path": curr_path,
                         }
 
@@ -1015,9 +1038,6 @@ class App:
             except Exception as exc:
                 print(f"[SAVE] WARNING – run {run_idx + 1} save failed: {exc}")
 
-            finally:
-                self._last_hapso = None
-
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     print("[BATCH] Quit requested after run. Stopping.")
@@ -1037,7 +1057,9 @@ class App:
         best_run = best_success_run if best_success_run is not None else best_failed_run
 
         avg_len = sum(path_lengths) / len(path_lengths) if path_lengths else 0.0
-        avg_time = total_time / run_count if run_count else 0.0
+
+        actual_runs = len(run_records)
+        avg_time = total_time / actual_runs if actual_runs > 0 else 0.0
 
         avg_fitness = (
             sum(fitness_values) / len(fitness_values) if fitness_values else 0.0

@@ -400,7 +400,7 @@ def print_all_path_metrics(
 
     row("Start time", lambda a: algo_start_times.get(a, "N/A").split()[1])
     row("End time", lambda a: algo_end_times.get(a, "N/A").split()[1])
-    row("Execution time", lambda a: all_path_metrics[a].get("Execution time (s)"))
+    row("Execution time", lambda a: all_path_metrics[a].get("Execution time"))
     row("TOTAL FITNESS", lambda a: all_path_metrics[a].get("TOTAL FITNESS"))
 
     # print("-" * 120)
@@ -560,7 +560,7 @@ def _save_path_json(
         "map": map_name,
         "start_time": start_time,
         "end_time": end_time,
-        "success": bool(path),
+        "success": metrics["Result"],
         "waypoint_count": len(path) if path else 0,
         "path": [list(p) for p in path] if path else [],
         "metrics": {

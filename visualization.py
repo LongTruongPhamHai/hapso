@@ -11,15 +11,24 @@ import os
 
 plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
-MAP_NAME = "KB02-MZ"
+MAP_NAME = "KB02-CL"
 COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
 Tỷ lệ thành công	90.0	0.0	100.0	100.0
-Độ dài đường đi	58.3287	-	43.3553	50.7023
-Góc quay trung bình	31.8871	-	9.8438	6.9699
-Khoảng cách an toàn 	1.166	-	0.7071	1.0453
-Thời gian tính toán	0.2093	0.1984	0.0096	1.2786
-Hàm đánh giá	0.7764	-	5	0.6734
+Độ dài đường đi	57.3003	–	43.3553	50.7023
+Góc quay trung bình	31.5568	–	9.8438	6.9699
+Khoảng cách an toàn 	1.1267	–	0.7071	1.0453
+Thời gian tính toán	0.133	0.2013	0.0096	1.2786
+Hàm đánh giá	0.7756	–	5	0.6734
 """
+# MAP_NAME = "KB02-MZ"
+# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
+# Tỷ lệ thành công	70.0	0.0	100.0	100.0
+# Độ dài đường đi	100.0793	–	84.527	85.9735
+# Góc quay trung bình	30.9597	–	15.203	6.6081
+# Khoảng cách an toàn 	1.2205	–	0.7071	1.0011
+# Thời gian tính toán	0.1943	0.1983	0.0048	1.9978
+# Hàm đánh giá	1.0622	–	5	0.9366
+# """
 METRIC_FILENAME_MAP: Dict[str, str] = {
     "Tỷ lệ thành công": "success_rate",
     "Độ dài đường đi": "path_length",
@@ -67,7 +76,7 @@ def _parse_comparison_table(raw: str) -> Tuple[List[str], Dict[str, List[float]]
             if not v:
                 values.append(None)
 
-            elif v == "-":
+            elif v == "-" or v == "–":
                 values.append(None)
 
             else:
@@ -89,7 +98,7 @@ def plot_algorithm_comparison(
         print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
         return
 
-    style = style or PlotStyle(figsize=(7.0, 5.5))
+    style = style or PlotStyle(figsize=(7.0, 4.0))
     algorithms, data = _parse_comparison_table(raw_table)
 
     if not algorithms or not data:
@@ -109,14 +118,6 @@ def plot_algorithm_comparison(
     hatches = CHART_HATCHES[: len(algorithms)]
 
     success_rates = data["Tỷ lệ thành công"]
-
-    metrics_with_success_rate = {
-        "Độ dài đường đi",
-        "Góc quay trung bình",
-        "Thời gian tính toán",
-        "Khoảng cách an toàn",
-        "Hàm đánh giá",
-    }
 
     for metric, values in data.items():
         # ======================================================
@@ -248,6 +249,9 @@ def plot_algorithm_comparison(
 
         ax1.set_ylim(0, max_val * 1.18)
         ax2.set_ylim(0, 105)
+
+        ax1.tick_params(axis="y", labelsize=18)
+        ax2.tick_params(axis="y", labelsize=18)
 
         ax1.grid(
             True,
