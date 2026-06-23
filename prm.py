@@ -1,11 +1,3 @@
-"""
-PRM Path Planning Algorithm Module.
-
-PRM (Probabilistic Roadmap) xây dựng một đồ thị các điểm sample hợp lệ
-trên không gian (roadmap) rồi kết nối các điểm lân cận nếu đoạn nối không va chạm.
-Sau đó dùng thuật toán ngắn nhất (Dijkstra) trên roadmap để tìm đường từ start->goal.
-"""
-
 from config.parameter import (
     PRM_CONNECTION_RADIUS,
     PRM_MAX_SAMPLE_ATTEMPTS,
@@ -42,10 +34,6 @@ class PRM:
         self.max_sample_attempts = max_sample_attempts
         self.roadmap: dict[int, PRMNode] = {}
         self.node_counter = 0
-        # Ghi chú tham số:
-        # - n_samples: số điểm sample để xây dựng roadmap
-        # - connection_radius: khoảng cách tối đa để tạo cạnh giữa 2 node
-        # - max_sample_attempts: số lần thử để tìm sample hợp lệ
 
     def plan(self) -> list[tuple[float, float]] | None:
         start = self.grid_map.start
@@ -67,23 +55,20 @@ class PRM:
         if start == goal:
             return [start, goal]
 
-        # Bước 1: Xây dựng roadmap (chỉ sample các điểm hợp lệ trên bản đồ)
         self._build_roadmap()
 
-        # Bước 2: Kết nối start và goal vào roadmap như các node tạm thời
         start_node = self._connect_point(start)
         goal_node = self._connect_point(goal)
 
-        # Nếu không thể kết nối start/goal vào đồ thị, trả về None
         if start_node is None or goal_node is None:
             self._remove_query_nodes([start_node, goal_node])
+
             return None
 
-        # Bước 3: Tìm đường ngắn nhất trên roadmap giữa start_node và goal_node
         path = self._search(start_node, goal_node)
 
-        # Bước 4: Dọn các node tạm (start/goal) khỏi roadmap để giữ nguyên trạng
         self._remove_query_nodes([start_node, goal_node])
+
         return path
 
     def _build_roadmap(self) -> None:
@@ -94,27 +79,27 @@ class PRM:
         attempts = 0
         max_attempts = self.n_samples * self.max_sample_attempts
 
-        # Thực hiện sampling ngẫu nhiên để thu thập các điểm hợp lệ
         while len(samples) < self.n_samples and attempts < max_attempts:
             attempts += 1
             x = random.randint(0, self.grid_map.width - 1)
             y = random.randint(0, self.grid_map.height - 1)
+
             if self.grid_map.is_inside(x, y) and not self.grid_map.is_obstacle(x, y):
                 samples.append((x, y))
 
-        # Tạo node cho mỗi sample
         for x, y in samples:
             self.roadmap[self.node_counter] = PRMNode(x, y, self.node_counter)
             self.node_counter += 1
 
-        # Kết nối các node nếu trong bán kính kết nối và đoạn nối không va chạm
         for node_id, node in list(self.roadmap.items()):
             for other_id, other_node in list(self.roadmap.items()):
                 if other_id == node_id:
                     continue
+
                 distance = euclidean_distance(
                     (node.x, node.y), (other_node.x, other_node.y)
                 )
+
                 if (
                     distance <= self.connection_radius
                     and not self._segment_has_collision(
@@ -127,11 +112,11 @@ class PRM:
         node = PRMNode(point[0], point[1], self.node_counter)
         connected = False
 
-        # Kết nối điểm truy vấn (start/goal) vào đồ thị nếu có neighbor hợp lệ
         for other_id, other_node in self.roadmap.items():
             distance = euclidean_distance(
                 (node.x, node.y), (other_node.x, other_node.y)
             )
+
             if distance <= self.connection_radius and not self._segment_has_collision(
                 (node.x, node.y), (other_node.x, other_node.y)
             ):
@@ -144,6 +129,7 @@ class PRM:
 
         self.roadmap[node.node_id] = node
         self.node_counter += 1
+
         return node
 
     def _remove_query_nodes(self, nodes: list[PRMNode | None]) -> None:
@@ -155,7 +141,6 @@ class PRM:
             if current is None:
                 continue
 
-            # Loại bỏ các cạnh trỏ tới node bị xoá trong neighbor list của các node còn lại
             for neighbor_id, _ in current.neighbors:
                 neighbor = self.roadmap.get(neighbor_id)
                 if neighbor is None:
@@ -177,7 +162,6 @@ class PRM:
         distances[start_node.node_id] = 0.0
         open_set: list[tuple[float, int]] = [(0.0, start_node.node_id)]
 
-        # Dijkstra trên đồ thị roadmap
         while open_set:
             current_dist, current_id = heapq.heappop(open_set)
 
@@ -230,6 +214,7 @@ class PRM:
         points: list[tuple[int, int]] = []
         delta_x = abs(x_end - x_start)
         delta_y = abs(y_end - y_start)
+
         step_x = 1 if x_start < x_end else -1
         step_y = 1 if y_start < y_end else -1
         err = delta_x - delta_y
@@ -239,6 +224,7 @@ class PRM:
             points.append((x, y))
             if x == x_end and y == y_end:
                 break
+
             e2 = 2 * err
             if e2 > -delta_y:
                 err -= delta_y

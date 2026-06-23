@@ -1,14 +1,3 @@
-"""
-RRT* Path Planning Algorithm Module.
-
-RRT* là phiên bản cải tiến của RRT cho phép tối ưu chi phí trong quá trình
-xây dựng cây bằng cách chọn parent tốt nhất cho mỗi node và rewire các
-nút lân cận khi tìm thấy chi phí tốt hơn.
-
-Module này giữ phong cách độc lập (không kế thừa base class) giống các
-planner khác trong project.
-"""
-
 from config.parameter import (
     MIN_CLEARANCE,
     RRT_STAR_GOAL_SAMPLE_RATE,
@@ -59,9 +48,6 @@ class RRTStar:
         self.max_sample_attempts = max_sample_attempts
         self.neighbor_radius = neighbor_radius
         self.min_clearance = float(min_clearance)
-        # Ghi chú tham số:
-        # - neighbor_radius: bán kính tìm neighbor để lựa chọn parent/rewire
-        # - adaptive radius: được tính trong _near_nodes để điều chỉnh theo kích thước cây
 
     def plan(self) -> list[tuple[float, float]] | None:
         start = self.grid_map.start
@@ -86,7 +72,6 @@ class RRTStar:
         nodes = [RRTStarNode(start[0], start[1])]
         best_goal_node: RRTStarNode | None = None
 
-        # Vòng lặp chính: sample -> steer -> chọn parent tốt nhất -> rewire
         for _ in range(self.max_iter):
             sample = self._sample_point(goal)
             nearest = self._nearest_node(nodes, sample)
@@ -95,13 +80,11 @@ class RRTStar:
             if new_point is None:
                 continue
 
-            # Tìm các node lân cận để xem xét chọn parent tốt nhất
             neighbors = self._near_nodes(nodes, new_point)
             parent = self._choose_parent(neighbors, nearest, new_point)
             if parent is None:
                 continue
 
-            # Kiểm tra va chạm cho đoạn parent -> new_point
             if self._segment_has_collision((parent.x, parent.y), new_point):
                 continue
 
@@ -109,10 +92,8 @@ class RRTStar:
             new_node = RRTStarNode(new_point[0], new_point[1], parent, new_cost)
             nodes.append(new_node)
 
-            # Rewire: nếu new_node cung cấp chi phí tốt hơn cho neighbor thì cập nhật
             self._rewire(neighbors, new_node, nodes)
 
-            # Nếu new_node đủ gần goal, cập nhật best_goal_node nếu chi phí tốt hơn
             if self._is_goal_reached(new_node, goal):
                 goal_cost = new_node.cost + euclidean_distance(
                     (new_node.x, new_node.y), goal
@@ -157,6 +138,7 @@ class RRTStar:
 
         if distance <= self.step_size:
             new_x, new_y = to_point
+
         else:
             ratio = self.step_size / distance
             new_x = int(round(from_node.x + delta_x * ratio))
@@ -179,6 +161,7 @@ class RRTStar:
         node_count = len(nodes)
         if node_count <= 1:
             radius = self.neighbor_radius
+
         else:
             adaptive_radius = 10.0 * math.sqrt(
                 math.log(node_count + 1) / (node_count + 1)
@@ -245,10 +228,6 @@ class RRTStar:
         return euclidean_distance((node.x, node.y), goal) <= self.step_size
 
     def _segment_has_collision(self, a: tuple[int, int], b: tuple[int, int]) -> bool:
-        for x, y in self._bresenham_line(a[0], a[1], b[0], b[1]):
-            if not self.grid_map.is_inside(x, y) or self.grid_map.is_obstacle(x, y):
-                return True
-
         if self.min_clearance > 0.0:
             if min_distance_line_to_obstacle(a, b, self.grid_map) <= self.min_clearance:
                 return True
@@ -265,32 +244,3 @@ class RRTStar:
 
         path.reverse()
         return path
-
-    def _bresenham_line(
-        self,
-        x_start: int,
-        y_start: int,
-        x_end: int,
-        y_end: int,
-    ) -> list[tuple[int, int]]:
-        points: list[tuple[int, int]] = []
-        delta_x = abs(x_end - x_start)
-        delta_y = abs(y_end - y_start)
-        step_x = 1 if x_start < x_end else -1
-        step_y = 1 if y_start < y_end else -1
-        err = delta_x - delta_y
-
-        x, y = x_start, y_start
-        while True:
-            points.append((x, y))
-            if x == x_end and y == y_end:
-                break
-            e2 = 2 * err
-            if e2 > -delta_y:
-                err -= delta_y
-                x += step_x
-            if e2 < delta_x:
-                err += delta_x
-                y += step_y
-
-        return points

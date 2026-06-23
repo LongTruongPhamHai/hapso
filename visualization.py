@@ -29,24 +29,24 @@ plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 # Thời gian tính toán	0.133	0.2013	0.0096	1.2786
 # Hàm đánh giá	0.7756	–	5	0.6734
 # """
-MAP_NAME = "KB03-ID"
-COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-Tỷ lệ thành công	90.0	10.0	100.0	100.0
-Độ dài đường đi	33.7909	27.4441	28.3137	32.2559
-Góc quay trung bình	27.4363	29.8106	18.75	8.4228
-Khoảng cách an toàn 	1.1712	0.7593	0.7071	1.1232
-Thời gian tính toán	0.2366	0.2325	0.0015	0.6411
-Hàm đánh giá	0.5793	5	5	0.525
-"""
-# MAP_NAME = "KB03-OD"
+# MAP_NAME = "KB03-ID"
 # COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-# Tỷ lệ thành công	100.0	10.0	100.0	100.0
-# Độ dài đường đi	53.1532	48.8074	49.3137	50.123
-# Góc quay trung bình	14.9267	42.3634	9	4.3502
-# Khoảng cách an toàn 	1.3097	0.7071	0.7071	1.1729
-# Thời gian tính toán	0.2157	0.2009	0.0021	1.1606
-# Hàm đánh giá	0.6695	5	5	0.634
+# Tỷ lệ thành công	90.0	10.0	100.0	100.0
+# Độ dài đường đi	33.7909	27.4441	28.3137	32.2559
+# Góc quay trung bình	27.4363	29.8106	18.75	8.4228
+# Khoảng cách an toàn 	1.1712	0.7593	0.7071	1.1232
+# Thời gian tính toán	0.2366	0.2325	0.0015	0.6411
+# Hàm đánh giá	0.5793	5	5	0.525
 # """
+MAP_NAME = "KB03-OD"
+COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
+Tỷ lệ thành công	100.0	10.0	100.0	100.0
+Độ dài đường đi	53.1532	48.8074	49.3137	50.123
+Góc quay trung bình	14.9267	42.3634	9	4.3502
+Khoảng cách an toàn 	1.3097	0.7071	0.7071	1.1729
+Thời gian tính toán	0.2157	0.2009	0.0021	1.1606
+Hàm đánh giá	0.6695	5	5	0.634
+"""
 METRIC_FILENAME_MAP: Dict[str, str] = {
     "Tỷ lệ thành công": "success_rate",
     "Độ dài đường đi": "path_length",
@@ -116,7 +116,7 @@ def plot_algorithm_comparison(
         print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
         return
 
-    style = style or PlotStyle(figsize=(7.0, 6.0))
+    style = style or PlotStyle(figsize=(7.0, 5.5))
     algorithms, data = _parse_comparison_table(raw_table)
 
     if not algorithms or not data:
@@ -320,17 +320,13 @@ def plot_stochastic_inertia_weight(
 
     plt.figure(figsize=style.figsize, dpi=style.dpi)
     plt.plot(iterations, stochastic_weight, "b-", label="Giá trị trọng số quán tính")
-    plt.xlabel("Vòng lặp (t)", fontsize=16)
-    plt.ylabel("Trọng số quán tính (w)", fontsize=16)
-    plt.legend(fontsize=14)
+    plt.xlabel("Vòng lặp (t)", fontsize=12)
+    plt.ylabel("Trọng số quán tính (w)", fontsize=12)
+    plt.legend(fontsize=12)
     plt.grid(True, linestyle=style.grid_style)
 
-    if out_path and not os.path.isdir(out_path):
-        os.makedirs(out_path, exist_ok=True)
-        plt.savefig(out_path, bbox_inches="tight")
-
-    else:
-        plt.show()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    plt.savefig(out_path, bbox_inches="tight")
 
     plt.close()
 
@@ -392,7 +388,7 @@ def plot_tvac(
     fig.tight_layout()
 
     if out_path and not os.path.isdir(out_path):
-        os.makedirs(out_path, exist_ok=True)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
         fig.savefig(out_path, bbox_inches="tight")
 
     else:
@@ -462,7 +458,7 @@ def plot_bezier_corner_smoothing(
     ax.grid(True, linestyle=style.grid_style)
 
     if out_path and not os.path.isdir(out_path):
-        os.makedirs(out_path, exist_ok=True)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
         fig.savefig(out_path, bbox_inches="tight")
 
     else:
@@ -473,12 +469,14 @@ def plot_bezier_corner_smoothing(
 
 if __name__ == "__main__":
 
-    plot_algorithm_comparison()
+    # plot_algorithm_comparison()
 
-    # plot_stochastic_inertia_weight(out_path=os.path.join("stochastic_inertia.png"))
+    # plot_stochastic_inertia_weight(
+    #     out_path=("data/results/improved/stochastic_inertia.png")
+    # )
 
-    # plot_tvac(out_path=os.path.join("tvac.png"))
+    # plot_tvac(out_path=("data/results/improved/tvac.png"))
 
-    # plot_bezier_corner_smoothing(out_path=os.path.join("bezier_corner_smoothing.png"))
+    # plot_bezier_corner_smoothing(out_path=("data/results/improved/bezier_corner_smoothing.png"))
 
-    # pass
+    pass
