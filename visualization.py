@@ -325,13 +325,13 @@ def plot_bezier_corner_smoothing(
         s=80,
         zorder=5,
     )
-    ax.text(entry_point[0] - 0.8, entry_point[1] + 0.2, "$P_{in}$")
-    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{out}$")
-    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$")
+    ax.text(entry_point[0] - 0.8, entry_point[1] + 0.2, "$P_{in}$", fontsize=16)
+    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{out}$", fontsize=16)
+    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$", fontsize=16)
 
-    ax.set_xlabel("Trục X")
-    ax.set_ylabel("Trục Y")
-    ax.legend()
+    ax.set_xlabel("Trục X", fontsize=14)
+    ax.set_ylabel("Trục Y", fontsize=14)
+    ax.legend(fontsize=14)
     ax.grid(True, linestyle=grid_style)
     fig.tight_layout()
     _save_fig(fig, out_path)
@@ -459,7 +459,7 @@ if __name__ == "__main__":
     # plot_stochastic_inertia_weight()
     # plot_tvac()
     # plot_sobl()
-    # plot_bezier_corner_smoothing()
-    plot_algorithm_comparison()
+    plot_bezier_corner_smoothing()
+    # plot_algorithm_comparison()
 
     pass
