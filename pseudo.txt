@@ -1,48 +1,42 @@
-1.  BẮT ĐẦU
-2.  
-3.  // Giai đoạn 1: Kiểm tra tính hợp lệ của biên
-4.  IF (Start hoặc Goal vi phạm vật cản/biên bản đồ) THEN:
-5.      RETURN None
-6.  ENDIF
-7.  
-8.  // Giai đoạn 2: Hoạch định hành lang hình học toàn cục (A*)
-9.  P_initial ← EXECUTE_ASTAR(Start, Goal, GridMap)
-10. IF (P_initial rỗng) THEN RETURN None
-11.
-12. // Giai đoạn 3: Tối ưu hóa bầy đàn thích nghi phân đoạn (PSO)
-13. P_pso ← [P_initial[0]]
-14. FOR i FROM 1 TO (Length(P_initial) – 2) DO:
-15.     Prev ← P_pso[last]
-16.     Next ← P_initial[i + 1]
-17.
-18.     // Khởi tạo quần thể khu trú
-19.     Particles ← INITIALIZE_PARTICLES(Prev, Next, Omega)
-20.
-21.     FOR iteration FROM 1 TO Max_Iter DO:
-22.         w ← CALCULATE_SIW(iteration)
-23.         c1, c2 ← CALCULATE_TVAC(iteration)
-24.
-25.         FOR EACH particle IN Particles DO:
-26.             UPDATE_VELOCITY(particle, w, c1, c2, G_best)
-27.             UPDATE_POSITION(particle)
-28.
-29.             // Chiến lược học tập đối lập ngẫu nhiên
-30.             Opp_Pos ← CALCULATE_SOBL(particle.pos)
-31.             IF (Fitness(Opp_Pos) < Fitness(particle.pos)) THEN:
-32.                 particle.pos ← Opp_Pos
-33.             ENDIF
-34.
-35.             UPDATE_PERSONAL_BEST(particle)
-36.         ENDFOR
-37.         UPDATE_GLOBAL_BEST(G_best)
-38.     ENDFOR
-39.
-40.     P_pso.APPEND(G_best.pos)
-41. ENDFOR
-42. P_pso.APPEND(Goal)
-43.
-44. // Giai đoạn 4: Xử lý làm mượt quỹ đạo
-45. P_final ← BEZIER_SMOOTH(P_pso, GridMap)
-46. RETURN P_final
-47. 
-48. KẾT THÚC
+Algorithm 1: HAPSO – Lập kế hoạch đường đi tối ưu cho UAV
+Input:  GridMap, Start, Goal
+Output: P_final hoặc None
+
+1:  if Start hoặc Goal ∉ GridMap hoặc nằm trong vật cản then
+2:      return None
+3:  P ← ASTAR(Start, Goal, GridMap)
+4:  if P = ∅ then return None
+5:  P_opt ← {P[0]}
+6:  for i ← 1 to |P| − 2 do
+7:      Particles ← INIT_SWARM(P[i−1], P[i+1])
+            // Lấy mẫu t ∈ [0,1] theo (3-17)(3-18)
+            // Kiểm tra hợp lệ, va chạm, khoảng cách an toàn
+            // Fallback về trung điểm nếu thất bại
+8:      stagnation ← 0
+9:      for t ← 1 to T_max do
+10:         w ← SIW(t)                    // Trọng số quán tính ngẫu nhiên
+11:         c1, c2 ← TVAC(t)              // Hệ số học tập thích nghi
+12:         for mỗi p ∈ Particles do
+13:             Cập nhật vận tốc theo (3-x)
+14:             Cập nhật vị trí theo (3-x)
+15:             p_opp ← SOBL(p)           // Học đối lập ngẫu nhiên
+16:             if f(p_opp) < f(p) then p ← p_opp
+17:             if f(p) < f(pbest_p) then pbest_p ← p
+18:         end for
+19:         G_best ← arg min_p f(pbest_p)
+20:         if G_best không cải thiện then 
+                stagnation ← stagnation + 1
+21:         if stagnation ≥ patience then break   // Dừng sớm
+22:     end for
+23:     P_opt ← P_opt ∪ {G_best.pos}
+24: end for
+25: P_final ← {P_opt[0]}
+26: for mỗi góc cua vượt ngưỡng trong P_opt do
+27:     Tính điểm entry, exit theo blend ratio
+28:     Sinh chuỗi điểm Bézier
+29:     if tất cả điểm Bézier đủ khoảng cách an toàn then
+30:         P_final ← P_final ∪ {chuỗi Bézier}
+31:     else
+32:         P_final ← P_final ∪ {điểm góc gốc}  // Giữ nguyên đoạn gốc
+33: end for
+34: return P_final ∪ {Goal}

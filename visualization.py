@@ -23,7 +23,32 @@ import os
 plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
 
 # MAP_NAME = "KB02-MZ"
-# ...
+# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
+# Tỷ lệ thành công	70.0	10.0	100.0	100.0
+# Độ dài đường đi	100.0793	87.5287	84.527	85.9735
+# Góc quay trung bình	30.9597	47.2212	15.203	6.6081
+# Khoảng cách an toàn 	1.2205	0.7071	0.7071	1.0011
+# Thời gian tính toán	0.1943	0.2518	0.0048	1.9978
+# Hàm đánh giá	1.0622	5.0000	5	0.9366
+# """
+# MAP_NAME = "KB02-CL"
+# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
+# Tỷ lệ thành công	90.0	0.0	100.0	100.0
+# Độ dài đường đi	57.3003	–	43.3553	50.7023
+# Góc quay trung bình	31.5568	–	9.8438	6.9699
+# Khoảng cách an toàn 	1.1267	–	0.7071	1.0453
+# Thời gian tính toán	0.133	0.2013	0.0096	1.2786
+# Hàm đánh giá	0.7756	–	5	0.6734
+# """
+# MAP_NAME = "KB03-ID"
+# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
+# Tỷ lệ thành công	90.0	10.0	100.0	100.0
+# Độ dài đường đi	33.7909	27.4441	28.3137	32.2559
+# Góc quay trung bình	27.4363	29.8106	18.75	8.4228
+# Khoảng cách an toàn 	1.1712	0.7593	0.7071	1.1232
+# Thời gian tính toán	0.2366	0.2325	0.0015	0.6411
+# Hàm đánh giá	0.5793	5	5	0.525
+# """
 MAP_NAME = "KB03-OD"
 COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
 Tỷ lệ thành công	100.0	10.0	100.0	100.0
@@ -48,122 +73,6 @@ def _save_fig(fig: plt.Figure, out_path: str) -> None:
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
-
-
-def _parse_comparison_table(
-    raw: str,
-) -> Tuple[List[str], Dict[str, List[Optional[float]]]]:
-    lines = [ln.rstrip() for ln in raw.strip().splitlines() if ln.strip()]
-
-    header_idx, algorithms = 0, []
-    for i, line in enumerate(lines):
-        parts = line.split("\t")
-        if len(parts) >= 3:
-            algorithms = [p.strip() for p in parts[1:] if p.strip()]
-            header_idx = i
-            break
-
-    data: Dict[str, List[Optional[float]]] = {}
-    for line in lines[header_idx + 1 :]:
-        parts = line.split("\t")
-        if len(parts) < 2:
-            continue
-        metric = parts[0].strip()
-        values = [None if v.strip() in ("", "-", "–") else float(v) for v in parts[1:]]
-        if metric and len(values) == len(algorithms):
-            data[metric] = values
-
-    return algorithms, data
-
-
-def plot_algorithm_comparison(
-    raw_table: str = COMPARISON_TABLE,
-    map_name: str = MAP_NAME,
-    out_base_dir: str = "data/results/charts",
-    figsize: Tuple[float, float] = (7.0, 5.5),
-    dpi: int = 150,
-    grid_style: str = "--",
-) -> None:
-    if not map_name:
-        print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
-        return
-
-    algorithms, data = _parse_comparison_table(raw_table)
-    if not algorithms or not data:
-        print("[VISUALIZATION] Failed to parse data from the table.")
-        return
-
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_dir = os.path.join(out_base_dir, f"{map_name}_{timestamp}")
-    os.makedirs(out_dir, exist_ok=True)
-
-    x = np.arange(len(algorithms))
-    bar_width = min(0.55 / max(len(algorithms) - 1, 1) * len(algorithms), 0.65)
-    colors = CHART_COLORS[: len(algorithms)]
-    hatches = CHART_HATCHES[: len(algorithms)]
-    success_rates = data["Tỷ lệ thành công"]
-
-    for metric, values in data.items():
-        if metric == "Tỷ lệ thành công":
-            continue
-
-        fig, ax1 = plt.subplots(figsize=figsize, dpi=dpi)
-        ax2 = ax1.twinx()
-
-        valid = [
-            (x[i], v, colors[i], hatches[i])
-            for i, v in enumerate(values)
-            if v is not None
-        ]
-        valid_x, valid_values, valid_colors, valid_hatches = zip(*valid)
-
-        bars = ax1.bar(
-            valid_x,
-            valid_values,
-            width=bar_width,
-            color=valid_colors,
-            edgecolor="black",
-            linewidth=0.8,
-        )
-        for bar, hatch in zip(bars, valid_hatches):
-            bar.set_hatch(hatch)
-
-        max_val = max(valid_values)
-        for bar, val in zip(bars, valid_values):
-            ax1.text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + max_val * 0.015,
-                f"{val:.4g}",
-                ha="center",
-                va="bottom",
-                fontsize=16,
-            )
-
-        ax2.plot(
-            x,
-            success_rates,
-            marker="o",
-            linewidth=2.5,
-            color="red",
-            label="Tỷ lệ thành công",
-        )
-
-        ax1.set_xticks(x)
-        ax1.set_xticklabels(algorithms, fontsize=20)
-        ax1.set_ylabel(metric, fontsize=20)
-        ax2.set_ylabel("Tỷ lệ thành công (%)", fontsize=20)
-        ax1.set_ylim(0, max_val * 1.18)
-        ax2.set_ylim(0, 105)
-        ax1.tick_params(axis="y", labelsize=18)
-        ax2.tick_params(axis="y", labelsize=18)
-        ax1.grid(True, axis="y", linestyle=grid_style, alpha=0.6)
-        ax1.set_axisbelow(True)
-        fig.tight_layout()
-
-        file_stem = METRIC_FILENAME_MAP.get(metric, metric.lower().replace(" ", "_"))
-        _save_fig(fig, os.path.join(out_dir, f"{file_stem}.png"))
-
-    print(f"[VISUALIZATION] Completed — {len(data)} charts saved to '{out_dir}'")
 
 
 def plot_stochastic_inertia_weight(
@@ -257,67 +166,6 @@ def plot_tvac(
     fig.tight_layout()
     _save_fig(fig, out_path)
     print(f"[VISUALIZATION] TVAC saved to '{out_path}'")
-
-
-def plot_bezier_corner_smoothing(
-    blend_ratio: float = 0.3,
-    out_path: str = "data/results/improved/bezier_corner_smoothing.png",
-    figsize: Tuple[float, float] = (7.2, 4.5),
-    dpi: int = 150,
-    grid_style: str = "--",
-) -> None:
-    prev_point = np.array([2.0, 2.0])
-    corner_point = np.array([6.0, 8.0])
-    next_point = np.array([10.0, 3.0])
-    entry_point = corner_point + blend_ratio * (prev_point - corner_point)
-    exit_point = corner_point + blend_ratio * (next_point - corner_point)
-
-    t = np.linspace(0.0, 1.0, 100)
-    bezier_points = (
-        np.outer((1 - t) ** 2, entry_point)
-        + np.outer(2 * (1 - t) * t, corner_point)
-        + np.outer(t**2, exit_point)
-    )
-
-    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 10)
-    ax.set_xticks(np.arange(0, 13, 1))
-    ax.set_yticks(np.arange(0, 11, 1))
-    ax.grid(True, linestyle=":", linewidth=0.8, alpha=0.7)
-
-    ax.plot(
-        [prev_point[0], corner_point[0], next_point[0]],
-        [prev_point[1], corner_point[1], next_point[1]],
-        "r--o",
-        label="Quỹ đạo gốc",
-    )
-    ax.plot(
-        bezier_points[:, 0],
-        bezier_points[:, 1],
-        "b-",
-        linewidth=2.5,
-        label="Đường cong Bezier nội suy",
-    )
-    ax.scatter(
-        [entry_point[0], exit_point[0]],
-        [entry_point[1], exit_point[1]],
-        color=CHART_MAGENTA,
-        s=80,
-        zorder=5,
-    )
-    ax.text(entry_point[0] - 0.8, entry_point[1] + 0.2, "$P_{in}$")
-    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{out}$")
-    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$")
-
-    ax.set_xlabel("Trục X")
-    ax.set_ylabel("Trục Y")
-    ax.legend()
-    ax.grid(True, linestyle=grid_style)
-    fig.tight_layout()
-    _save_fig(fig, out_path)
-    print(f"[VISUALIZATION] Bezier saved to '{out_path}'")
 
 
 def plot_sobl(
@@ -429,12 +277,189 @@ def plot_sobl(
     print(f"[VISUALIZATION] SOBL saved to '{out_path}'")
 
 
+def plot_bezier_corner_smoothing(
+    blend_ratio: float = 0.3,
+    out_path: str = "data/results/improved/bezier_corner_smoothing.png",
+    figsize: Tuple[float, float] = (7.2, 4.5),
+    dpi: int = 150,
+    grid_style: str = "--",
+) -> None:
+    prev_point = np.array([2.0, 2.0])
+    corner_point = np.array([6.0, 8.0])
+    next_point = np.array([10.0, 3.0])
+    entry_point = corner_point + blend_ratio * (prev_point - corner_point)
+    exit_point = corner_point + blend_ratio * (next_point - corner_point)
+
+    t = np.linspace(0.0, 1.0, 100)
+    bezier_points = (
+        np.outer((1 - t) ** 2, entry_point)
+        + np.outer(2 * (1 - t) * t, corner_point)
+        + np.outer(t**2, exit_point)
+    )
+
+    fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(0, 12)
+    ax.set_ylim(0, 10)
+    ax.set_xticks(np.arange(0, 13, 1))
+    ax.set_yticks(np.arange(0, 11, 1))
+    ax.grid(True, linestyle=":", linewidth=0.8, alpha=0.7)
+
+    ax.plot(
+        [prev_point[0], corner_point[0], next_point[0]],
+        [prev_point[1], corner_point[1], next_point[1]],
+        "r--o",
+        label="Quỹ đạo gốc",
+    )
+    ax.plot(
+        bezier_points[:, 0],
+        bezier_points[:, 1],
+        "b-",
+        linewidth=2.5,
+        label="Đường cong Bezier nội suy",
+    )
+    ax.scatter(
+        [entry_point[0], exit_point[0]],
+        [entry_point[1], exit_point[1]],
+        color=CHART_MAGENTA,
+        s=80,
+        zorder=5,
+    )
+    ax.text(entry_point[0] - 0.8, entry_point[1] + 0.2, "$P_{in}$")
+    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{out}$")
+    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$")
+
+    ax.set_xlabel("Trục X")
+    ax.set_ylabel("Trục Y")
+    ax.legend()
+    ax.grid(True, linestyle=grid_style)
+    fig.tight_layout()
+    _save_fig(fig, out_path)
+    print(f"[VISUALIZATION] Bezier saved to '{out_path}'")
+
+
+def _parse_comparison_table(
+    raw: str,
+) -> Tuple[List[str], Dict[str, List[Optional[float]]]]:
+    lines = [ln.rstrip() for ln in raw.strip().splitlines() if ln.strip()]
+
+    header_idx, algorithms = 0, []
+    for i, line in enumerate(lines):
+        parts = line.split("\t")
+        if len(parts) >= 3:
+            algorithms = [p.strip() for p in parts[1:] if p.strip()]
+            header_idx = i
+            break
+
+    data: Dict[str, List[Optional[float]]] = {}
+    for line in lines[header_idx + 1 :]:
+        parts = line.split("\t")
+        if len(parts) < 2:
+            continue
+        metric = parts[0].strip()
+        values = [None if v.strip() in ("", "-", "–") else float(v) for v in parts[1:]]
+        if metric and len(values) == len(algorithms):
+            data[metric] = values
+
+    return algorithms, data
+
+
+def plot_algorithm_comparison(
+    raw_table: str = COMPARISON_TABLE,
+    map_name: str = MAP_NAME,
+    out_base_dir: str = "data/results/charts",
+    figsize: Tuple[float, float] = (7.0, 5.0),
+    dpi: int = 150,
+    grid_style: str = "--",
+) -> None:
+    if not map_name:
+        print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
+        return
+
+    algorithms, data = _parse_comparison_table(raw_table)
+    if not algorithms or not data:
+        print("[VISUALIZATION] Failed to parse data from the table.")
+        return
+
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir = os.path.join(out_base_dir, f"{map_name}_{timestamp}")
+    os.makedirs(out_dir, exist_ok=True)
+
+    x = np.arange(len(algorithms))
+    bar_width = min(0.55 / max(len(algorithms) - 1, 1) * len(algorithms), 0.65)
+    colors = CHART_COLORS[: len(algorithms)]
+    hatches = CHART_HATCHES[: len(algorithms)]
+    success_rates = data["Tỷ lệ thành công"]
+
+    for metric, values in data.items():
+        if metric == "Tỷ lệ thành công":
+            continue
+
+        fig, ax1 = plt.subplots(figsize=figsize, dpi=dpi)
+        ax2 = ax1.twinx()
+
+        valid = [
+            (x[i], v, colors[i], hatches[i])
+            for i, v in enumerate(values)
+            if v is not None
+        ]
+        valid_x, valid_values, valid_colors, valid_hatches = zip(*valid)
+
+        bars = ax1.bar(
+            valid_x,
+            valid_values,
+            width=bar_width,
+            color=valid_colors,
+            edgecolor="black",
+            linewidth=0.8,
+        )
+        for bar, hatch in zip(bars, valid_hatches):
+            bar.set_hatch(hatch)
+
+        max_val = max(valid_values)
+        for bar, val in zip(bars, valid_values):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max_val * 0.015,
+                f"{val:.4g}",
+                ha="center",
+                va="bottom",
+                fontsize=16,
+            )
+
+        ax2.plot(
+            x,
+            success_rates,
+            marker="o",
+            linewidth=2.5,
+            color="red",
+            label="Tỷ lệ thành công",
+        )
+
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(algorithms, fontsize=20)
+        ax1.set_ylabel(metric, fontsize=20)
+        ax2.set_ylabel("Tỷ lệ thành công (%)", fontsize=20)
+        ax1.set_ylim(0, max_val * 1.18)
+        ax2.set_ylim(0, 105)
+        ax1.tick_params(axis="y", labelsize=18)
+        ax2.tick_params(axis="y", labelsize=18)
+        ax1.grid(True, axis="y", linestyle=grid_style, alpha=0.6)
+        ax1.set_axisbelow(True)
+        fig.tight_layout()
+
+        file_stem = METRIC_FILENAME_MAP.get(metric, metric.lower().replace(" ", "_"))
+        _save_fig(fig, os.path.join(out_dir, f"{file_stem}.png"))
+
+    print(f"[VISUALIZATION] Completed — {len(data)} charts saved to '{out_dir}'")
+
+
 if __name__ == "__main__":
 
     # plot_stochastic_inertia_weight()
     # plot_tvac()
-    plot_sobl()
+    # plot_sobl()
     # plot_bezier_corner_smoothing()
-    # plot_algorithm_comparison()
+    plot_algorithm_comparison()
 
     pass

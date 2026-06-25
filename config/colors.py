@@ -23,6 +23,6 @@ CHART_MAGENTA: str = "#FF00FF"  # Điểm P_in / P_out (Bezier), quiver giai đo
 CHART_PURPLE: str = "#6A0DAD"  # Scatter giai đoạn cuối (TVAC)
 CHART_GOLD: str = "#FFD700"  # Gbest marker (TVAC)
 
-CHART_COLORS = ["#1f77b4", "#17becf", "#2ca02c", "#9467bd"]
-# CHART_COLORS = ["#f0f0f0", "#cccccc", "#969696", "#878787"]
-CHART_HATCHES = ["", "//", "xx", ".."]
+# CHART_COLORS = ["#1f77b4", "#17becf", "#2ca02c", "#9467bd"]
+CHART_COLORS = ["#f0f0f0", "#f0f0f0", "#f0f0f0", "#f0f0f0"]
+CHART_HATCHES = ["", "/", "x", "-"]
