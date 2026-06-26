@@ -7,6 +7,7 @@ from config.parameter import (
     RRT_STAR_STEP_SIZE,
 )
 from grid_map import GridMap
+from typing import Optional
 from utils import euclidean_distance, min_distance_line_to_obstacle
 
 import math
@@ -18,7 +19,7 @@ class RRTStarNode:
         self,
         x: int,
         y: int,
-        came_from: "RRTStarNode | None" = None,
+        came_from: Optional["RRTStarNode"] = None,
         cost: float = 0.0,
     ) -> None:
         self.x = x
@@ -49,7 +50,7 @@ class RRTStar:
         self.neighbor_radius = neighbor_radius
         self.min_clearance = float(min_clearance)
 
-    def plan(self) -> list[tuple[float, float]] | None:
+    def plan(self) -> Optional[list[tuple[float, float]]]:
         start = self.grid_map.start
         goal = self.grid_map.goal
 
@@ -70,26 +71,29 @@ class RRTStar:
             return [start, goal]
 
         nodes = [RRTStarNode(start[0], start[1])]
-        best_goal_node: RRTStarNode | None = None
+        best_goal_node: Optional[RRTStarNode] = None
 
         for _ in range(self.max_iter):
-            sample = self._sample_point(goal)
-            nearest = self._nearest_node(nodes, sample)
-            new_point = self._steer(nearest, sample)
+            sample_point = self._sample_point(goal)
+            nearest_node = self._nearest_node(nodes, sample_point)
+            new_point = self._steer(nearest_node, sample_point)
 
             if new_point is None:
                 continue
 
             neighbors = self._near_nodes(nodes, new_point)
-            parent = self._choose_parent(neighbors, nearest, new_point)
-            if parent is None:
+            parent_node = self._choose_parent(neighbors, nearest_node, new_point)
+
+            if parent_node is None:
                 continue
 
-            if self._segment_has_collision((parent.x, parent.y), new_point):
+            if self._segment_has_collision((parent_node.x, parent_node.y), new_point):
                 continue
 
-            new_cost = parent.cost + euclidean_distance((parent.x, parent.y), new_point)
-            new_node = RRTStarNode(new_point[0], new_point[1], parent, new_cost)
+            new_cost = parent_node.cost + euclidean_distance(
+                (parent_node.x, parent_node.y), new_point
+            )
+            new_node = RRTStarNode(new_point[0], new_point[1], parent_node, new_cost)
             nodes.append(new_node)
 
             self._rewire(neighbors, new_node, nodes)
@@ -98,6 +102,7 @@ class RRTStar:
                 goal_cost = new_node.cost + euclidean_distance(
                     (new_node.x, new_node.y), goal
                 )
+
                 if best_goal_node is None or goal_cost < best_goal_node.cost:
                     if not self._segment_has_collision((new_node.x, new_node.y), goal):
                         best_goal_node = RRTStarNode(
@@ -116,19 +121,24 @@ class RRTStar:
         for _ in range(self.max_sample_attempts):
             x = random.randint(0, self.grid_map.width - 1)
             y = random.randint(0, self.grid_map.height - 1)
+
             if self.grid_map.is_inside(x, y) and not self.grid_map.is_obstacle(x, y):
                 return (x, y)
 
         return goal
 
     def _nearest_node(
-        self, nodes: list[RRTStarNode], point: tuple[int, int]
+        self,
+        nodes: list[RRTStarNode],
+        point: tuple[int, int],
     ) -> RRTStarNode:
         return min(nodes, key=lambda node: euclidean_distance((node.x, node.y), point))
 
     def _steer(
-        self, from_node: RRTStarNode, to_point: tuple[int, int]
-    ) -> tuple[int, int] | None:
+        self,
+        from_node: RRTStarNode,
+        to_point: tuple[int, int],
+    ) -> Optional[tuple[int, int]]:
         delta_x = to_point[0] - from_node.x
         delta_y = to_point[1] - from_node.y
         distance = math.sqrt(delta_x * delta_x + delta_y * delta_y)
@@ -156,9 +166,12 @@ class RRTStar:
         return (new_x, new_y)
 
     def _near_nodes(
-        self, nodes: list[RRTStarNode], point: tuple[int, int]
+        self,
+        nodes: list[RRTStarNode],
+        point: tuple[int, int],
     ) -> list[RRTStarNode]:
         node_count = len(nodes)
+
         if node_count <= 1:
             radius = self.neighbor_radius
 
@@ -177,10 +190,10 @@ class RRTStar:
     def _choose_parent(
         self,
         neighbors: list[RRTStarNode],
-        nearest: RRTStarNode,
+        nearest_node: RRTStarNode,
         point: tuple[int, int],
-    ) -> RRTStarNode | None:
-        candidates = neighbors if neighbors else [nearest]
+    ) -> Optional[RRTStarNode]:
+        candidates = neighbors if neighbors else [nearest_node]
         best_node = None
         best_cost = float("inf")
 
@@ -189,6 +202,7 @@ class RRTStar:
                 continue
 
             cost = node.cost + euclidean_distance((node.x, node.y), point)
+
             if cost < best_cost:
                 best_cost = cost
                 best_node = node
@@ -211,12 +225,17 @@ class RRTStar:
             new_cost = new_node.cost + euclidean_distance(
                 (new_node.x, new_node.y), (node.x, node.y)
             )
+
             if new_cost < node.cost:
                 node.came_from = new_node
                 node.cost = new_cost
                 self._propagate_cost(node, nodes)
 
-    def _propagate_cost(self, node: RRTStarNode, nodes: list[RRTStarNode]) -> None:
+    def _propagate_cost(
+        self,
+        node: RRTStarNode,
+        nodes: list[RRTStarNode],
+    ) -> None:
         for child in nodes:
             if child.came_from is node:
                 child.cost = node.cost + euclidean_distance(
@@ -224,19 +243,32 @@ class RRTStar:
                 )
                 self._propagate_cost(child, nodes)
 
-    def _is_goal_reached(self, node: RRTStarNode, goal: tuple[int, int]) -> bool:
+    def _is_goal_reached(
+        self,
+        node: RRTStarNode,
+        goal: tuple[int, int],
+    ) -> bool:
         return euclidean_distance((node.x, node.y), goal) <= self.step_size
 
-    def _segment_has_collision(self, a: tuple[int, int], b: tuple[int, int]) -> bool:
-        if self.min_clearance > 0.0:
-            if min_distance_line_to_obstacle(a, b, self.grid_map) <= self.min_clearance:
-                return True
+    def _segment_has_collision(
+        self,
+        point_a: tuple[float, float],
+        point_b: tuple[float, float],
+    ) -> bool:
+        if (
+            min_distance_line_to_obstacle(point_a, point_b, self.grid_map)
+            <= self.min_clearance
+        ):
+            return True
 
         return False
 
-    def _reconstruct_path(self, node: RRTStarNode) -> list[tuple[int, int]]:
+    def _reconstruct_path(
+        self,
+        node: RRTStarNode,
+    ) -> list[tuple[int, int]]:
         path: list[tuple[int, int]] = []
-        current: RRTStarNode | None = node
+        current: Optional[RRTStarNode] = node
 
         while current is not None:
             path.append((current.x, current.y))

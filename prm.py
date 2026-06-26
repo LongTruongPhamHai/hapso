@@ -1,17 +1,24 @@
 from config.parameter import (
+    MIN_CLEARANCE,
     PRM_CONNECTION_RADIUS,
     PRM_MAX_SAMPLE_ATTEMPTS,
     PRM_N_SAMPLES,
 )
 from grid_map import GridMap
-from utils import euclidean_distance
+from typing import Optional
+from utils import euclidean_distance, min_distance_line_to_obstacle
 
 import heapq
 import random
 
 
 class PRMNode:
-    def __init__(self, x: int, y: int, node_id: int) -> None:
+    def __init__(
+        self,
+        x: int,
+        y: int,
+        node_id: int,
+    ) -> None:
         self.x = x
         self.y = y
         self.node_id = node_id
@@ -25,17 +32,21 @@ class PRM:
         n_samples: int = PRM_N_SAMPLES,
         connection_radius: float = PRM_CONNECTION_RADIUS,
         max_sample_attempts: int = PRM_MAX_SAMPLE_ATTEMPTS,
+        min_clearance: float = MIN_CLEARANCE,
     ) -> None:
         self.grid_map = grid_map
         self.start = self.grid_map.start
         self.goal = self.grid_map.goal
+
         self.n_samples = n_samples
         self.connection_radius = connection_radius
         self.max_sample_attempts = max_sample_attempts
+        self.min_clearance = float(min_clearance)
+
         self.roadmap: dict[int, PRMNode] = {}
         self.node_counter = 0
 
-    def plan(self) -> list[tuple[float, float]] | None:
+    def plan(self) -> Optional[list[tuple[float, float]]]:
         start = self.grid_map.start
         goal = self.grid_map.goal
 
@@ -62,7 +73,6 @@ class PRM:
 
         if start_node is None or goal_node is None:
             self._remove_query_nodes([start_node, goal_node])
-
             return None
 
         path = self._search(start_node, goal_node)
@@ -108,57 +118,63 @@ class PRM:
                 ):
                     node.neighbors.append((other_id, distance))
 
-    def _connect_point(self, point: tuple[int, int]) -> PRMNode | None:
-        node = PRMNode(point[0], point[1], self.node_counter)
-        connected = False
+    def _connect_point(self, point: tuple[int, int]) -> Optional[PRMNode]:
+        new_node = PRMNode(point[0], point[1], self.node_counter)
+        is_connected = False
 
         for other_id, other_node in self.roadmap.items():
             distance = euclidean_distance(
-                (node.x, node.y), (other_node.x, other_node.y)
+                (new_node.x, new_node.y), (other_node.x, other_node.y)
             )
 
             if distance <= self.connection_radius and not self._segment_has_collision(
-                (node.x, node.y), (other_node.x, other_node.y)
+                (new_node.x, new_node.y), (other_node.x, other_node.y)
             ):
-                node.neighbors.append((other_id, distance))
-                other_node.neighbors.append((node.node_id, distance))
-                connected = True
+                new_node.neighbors.append((other_id, distance))
+                other_node.neighbors.append((new_node.node_id, distance))
+                is_connected = True
 
-        if not connected:
+        if not is_connected:
             return None
 
-        self.roadmap[node.node_id] = node
+        self.roadmap[new_node.node_id] = new_node
         self.node_counter += 1
 
-        return node
+        return new_node
 
-    def _remove_query_nodes(self, nodes: list[PRMNode | None]) -> None:
+    def _remove_query_nodes(self, nodes: list[Optional[PRMNode]]) -> None:
         for node in nodes:
             if node is None:
                 continue
 
-            current = self.roadmap.pop(node.node_id, None)
-            if current is None:
+            removed_node = self.roadmap.pop(node.node_id, None)
+
+            if removed_node is None:
                 continue
 
-            for neighbor_id, _ in current.neighbors:
+            for neighbor_id, _ in removed_node.neighbors:
                 neighbor = self.roadmap.get(neighbor_id)
+
                 if neighbor is None:
                     continue
 
                 neighbor.neighbors = [
-                    (existing_neighbor_id, distance)
-                    for existing_neighbor_id, distance in neighbor.neighbors
-                    if existing_neighbor_id != current.node_id
+                    (existing_id, dist)
+                    for existing_id, dist in neighbor.neighbors
+                    if existing_id != removed_node.node_id
                 ]
 
     def _search(
-        self, start_node: PRMNode, goal_node: PRMNode
-    ) -> list[tuple[int, int]] | None:
+        self,
+        start_node: PRMNode,
+        goal_node: PRMNode,
+    ) -> Optional[list[tuple[int, int]]]:
         distances: dict[int, float] = {
             node_id: float("inf") for node_id in self.roadmap
         }
-        came_from: dict[int, int | None] = {node_id: None for node_id in self.roadmap}
+        came_from: dict[int, Optional[int]] = {
+            node_id: None for node_id in self.roadmap
+        }
         distances[start_node.node_id] = 0.0
         open_set: list[tuple[float, int]] = [(0.0, start_node.node_id)]
 
@@ -171,9 +187,11 @@ class PRM:
             if current_id == goal_node.node_id:
                 return self._reconstruct_path(goal_node.node_id, came_from)
 
-            current = self.roadmap[current_id]
-            for neighbor_id, edge_distance in current.neighbors:
+            current_node = self.roadmap[current_id]
+
+            for neighbor_id, edge_distance in current_node.neighbors:
                 new_dist = current_dist + edge_distance
+
                 if new_dist < distances[neighbor_id]:
                     distances[neighbor_id] = new_dist
                     came_from[neighbor_id] = current_id
@@ -184,10 +202,10 @@ class PRM:
     def _reconstruct_path(
         self,
         goal_id: int,
-        came_from: dict[int, int | None],
+        came_from: dict[int, Optional[int]],
     ) -> list[tuple[int, int]]:
         path: list[tuple[int, int]] = []
-        current_id: int | None = goal_id
+        current_id: Optional[int] = goal_id
 
         while current_id is not None:
             node = self.roadmap[current_id]
@@ -197,40 +215,15 @@ class PRM:
         path.reverse()
         return path
 
-    def _segment_has_collision(self, a: tuple[int, int], b: tuple[int, int]) -> bool:
-        for x, y in self._bresenham_line(a[0], a[1], b[0], b[1]):
-            if not self.grid_map.is_inside(x, y) or self.grid_map.is_obstacle(x, y):
-                return True
+    def _segment_has_collision(
+        self,
+        point_a: tuple[float, float],
+        point_b: tuple[float, float],
+    ) -> bool:
+        if (
+            min_distance_line_to_obstacle(point_a, point_b, self.grid_map)
+            <= self.min_clearance
+        ):
+            return True
 
         return False
-
-    def _bresenham_line(
-        self,
-        x_start: int,
-        y_start: int,
-        x_end: int,
-        y_end: int,
-    ) -> list[tuple[int, int]]:
-        points: list[tuple[int, int]] = []
-        delta_x = abs(x_end - x_start)
-        delta_y = abs(y_end - y_start)
-
-        step_x = 1 if x_start < x_end else -1
-        step_y = 1 if y_start < y_end else -1
-        err = delta_x - delta_y
-
-        x, y = x_start, y_start
-        while True:
-            points.append((x, y))
-            if x == x_end and y == y_end:
-                break
-
-            e2 = 2 * err
-            if e2 > -delta_y:
-                err -= delta_y
-                x += step_x
-            if e2 < delta_x:
-                err += delta_x
-                y += step_y
-
-        return points

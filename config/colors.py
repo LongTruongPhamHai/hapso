@@ -13,16 +13,14 @@ BLUE: tuple[int, int, int] = (0, 127, 255)
 INDIGO: tuple[int, int, int] = (75, 0, 130)
 VIOLET: tuple[int, int, int] = (148, 0, 211)
 
-# ── Màu bổ sung cho visualization ──
-DARK_GRAY: str = "#444441"  # Điểm đang xét (SOBL), trục x tick
-CHART_BLUE: str = "#378ADD"  # Hạt gốc (SOBL)
-CHART_ORANGE: str = "#D85A30"  # Điểm đối lập (SOBL)
-CHART_GREEN: str = "#639922"  # Quỹ đạo A* (SOBL), màu quiver giai đoạn đầu
-CHART_DARK_GREEN: str = "#1B6B1B"  # darkgreen (TVAC giai đoạn đầu)
-CHART_MAGENTA: str = "#FF00FF"  # Điểm P_in / P_out (Bezier), quiver giai đoạn cuối
-CHART_PURPLE: str = "#6A0DAD"  # Scatter giai đoạn cuối (TVAC)
-CHART_GOLD: str = "#FFD700"  # Gbest marker (TVAC)
+DARK_GRAY: str = "#444441"
+CHART_BLUE: str = "#378ADD"
+CHART_ORANGE: str = "#D85A30"
+CHART_GREEN: str = "#639922"
+CHART_DARK_GREEN: str = "#1B6B1B"
+CHART_MAGENTA: str = "#FF00FF"
+CHART_PURPLE: str = "#6A0DAD"
+CHART_GOLD: str = "#FFD700"
 
-# CHART_COLORS = ["#1f77b4", "#17becf", "#2ca02c", "#9467bd"]
-CHART_COLORS = ["#f0f0f0", "#f0f0f0", "#f0f0f0", "#f0f0f0"]
+CHART_COLORS = ["#1f77b4", "#17becf", "#2ca02c", "#9467bd"]
 CHART_HATCHES = ["", "/", "x", "-"]

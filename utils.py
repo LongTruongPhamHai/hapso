@@ -218,8 +218,6 @@ def compute_fitness(
 def total_fitness(
     path: list[tuple[float, float]],
     grid_map: GridMap,
-    min_clearance: float,
-    collision_penalty: float,
     reference_metrics: dict | None = None,
 ) -> float:
     return compute_fitness(
@@ -521,7 +519,6 @@ def save_run_results(
     algorithm_name: str,
     path: Optional[list[tuple[float, float]]],
     metrics: dict,
-    cost_history: Optional[list[float]] = None,
     map_name: str = "N/A",
     start_time: str = "N/A",
     end_time: str = "N/A",
