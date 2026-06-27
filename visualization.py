@@ -325,8 +325,8 @@ def plot_bezier_corner_smoothing(
         s=80,
         zorder=5,
     )
-    ax.text(entry_point[0] - 0.8, entry_point[1] + 0.2, "$P_{in}$", fontsize=16)
-    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{out}$", fontsize=16)
+    ax.text(entry_point[0] - 1.7, entry_point[1] + 0.2, "$P_{entry}$", fontsize=16)
+    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{exit}$", fontsize=16)
     ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$", fontsize=16)
 
     ax.set_xlabel("Trục X", fontsize=14)
