@@ -11,6 +11,7 @@ from config.colors import (
     CHART_PURPLE,
     CHART_GOLD,
     HEX_MEDIUM,
+    TEXT_SLIDE,
 )
 from typing import Dict, List, Optional, Tuple
 
@@ -82,7 +83,7 @@ def plot_stochastic_inertia_weight(
     noise_scale: float = 0.1,
     seed: int = 42,
     out_path: str = "data/results/improved/stochastic_inertia.png",
-    figsize: Tuple[float, float] = (8.0, 4.5),
+    figsize: Tuple[float, float] = (9.0, 3.2),
     dpi: int = 150,
     grid_style: str = "--",
 ) -> None:
@@ -95,10 +96,12 @@ def plot_stochastic_inertia_weight(
 
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
     ax.plot(iterations, stochastic_weight, "b-", label="Giá trị trọng số quán tính")
-    ax.set_xlabel("Vòng lặp (t)", fontsize=12)
-    ax.set_ylabel("Trọng số quán tính (w)", fontsize=12)
-    ax.legend(fontsize=12)
+    ax.set_xlabel("Vòng lặp (t)", fontsize=20, color=TEXT_SLIDE)
+    ax.set_ylabel("Trọng số quán tính (w)", fontsize=20, color=TEXT_SLIDE)
+    ax.legend(fontsize=20, labelcolor=TEXT_SLIDE)
     ax.grid(True, linestyle=grid_style)
+    ax.tick_params(axis="both", labelsize=16)
+
     fig.tight_layout()
     _save_fig(fig, out_path)
     print(f"[VISUALIZATION] SIW saved to '{out_path}'")
@@ -111,7 +114,7 @@ def plot_tvac(
     global_best: Tuple[float, float] = (50.0, 50.0),
     seed: int = 10,
     out_path: str = "data/results/improved/tvac.png",
-    figsize: Tuple[float, float] = (11.0, 4.8),
+    figsize: Tuple[float, float] = (11.0, 3.0),
     dpi: int = 150,
 ) -> None:
     rng = np.random.default_rng(seed)
@@ -133,7 +136,7 @@ def plot_tvac(
         alpha=0.7,
     )
     ax1.scatter(early_x, early_y, color=CHART_DARK_GREEN, s=100, label="Cá thể")
-    ax1.set_title("Giai đoạn đầu", fontsize=18)
+    ax1.set_title("Giai đoạn đầu", fontsize=20, color=TEXT_SLIDE)
 
     ax2.quiver(
         late_x,
@@ -153,15 +156,16 @@ def plot_tvac(
         edgecolors="black",
         label="Tối ưu toàn cục (Gbest)",
     )
-    ax2.set_title("Giai đoạn cuối", fontsize=18)
+    ax2.set_title("Giai đoạn cuối", fontsize=20, color=TEXT_SLIDE)
 
     for _ax in (ax1, ax2):
         _ax.set_xlim(space_min_value, space_max_value)
         _ax.set_ylim(space_min_value, space_max_value)
-        _ax.set_xlabel("Không gian X₁", fontsize=16)
-        _ax.set_ylabel("Không gian X₂", fontsize=16)
+        _ax.set_xlabel("Không gian X₁", fontsize=18, color=TEXT_SLIDE)
+        _ax.set_ylabel("Không gian X₂", fontsize=18, color=TEXT_SLIDE)
         _ax.grid(True, linestyle=":")
-        _ax.legend(fontsize=14)
+        _ax.legend(fontsize=14, loc="upper right")
+        _ax.tick_params(axis="both", labelsize=14)
 
     fig.tight_layout()
     _save_fig(fig, out_path)
@@ -172,7 +176,7 @@ def plot_sobl(
     n_particles: int = 20,
     seed: int = 42,
     out_path: str = "data/results/improved/sobl.png",
-    figsize: Tuple[float, float] = (11.0, 4.8),
+    figsize: Tuple[float, float] = (12.0, 4.5),
     dpi: int = 150,
 ) -> None:
     rng = np.random.default_rng(seed)
@@ -203,8 +207,8 @@ def plot_sobl(
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_aspect("equal")
-        ax.set_xlabel("Không gian X₁", fontsize=16)
-        ax.set_ylabel("Không gian X₂", fontsize=16)
+        ax.set_xlabel("Không gian X₁", fontsize=18, color=TEXT_SLIDE)
+        ax.set_ylabel("Không gian X₂", fontsize=18, color=TEXT_SLIDE)
         ax.grid(True, linestyle=":")
 
         ax.plot(
@@ -269,8 +273,22 @@ def plot_sobl(
             zorder=5,
             label="Cá thể gốc",
         )
-        ax.set_title("Áp dụng SOBL" if show_sobl else "Không áp dụng SOBL", fontsize=18)
-        ax.legend(fontsize=12, loc="upper right")
+        ax.set_title(
+            "Áp dụng SOBL" if show_sobl else "Không áp dụng SOBL",
+            fontsize=20,
+            color=TEXT_SLIDE,
+        )
+        # ax.legend(fontsize=14, loc="upper right")
+
+    # handles, labels = ax_with.get_legend_handles_labels()
+    # fig.legend(
+    #     handles,
+    #     labels,
+    #     loc="center",
+    #     bbox_to_anchor=(0.48, 0.5),
+    #     fontsize=14,
+    #     framealpha=0.9,
+    # )
 
     fig.tight_layout()
     _save_fig(fig, out_path)
@@ -280,13 +298,13 @@ def plot_sobl(
 def plot_bezier_corner_smoothing(
     blend_ratio: float = 0.3,
     out_path: str = "data/results/improved/bezier_corner_smoothing.png",
-    figsize: Tuple[float, float] = (7.2, 4.5),
+    figsize: Tuple[float, float] = (11.0, 3.0),
     dpi: int = 150,
     grid_style: str = "--",
 ) -> None:
     prev_point = np.array([2.0, 2.0])
-    corner_point = np.array([6.0, 8.0])
-    next_point = np.array([10.0, 3.0])
+    corner_point = np.array([4.0, 8.0])
+    next_point = np.array([6.0, 3.0])
     entry_point = corner_point + blend_ratio * (prev_point - corner_point)
     exit_point = corner_point + blend_ratio * (next_point - corner_point)
 
@@ -298,10 +316,10 @@ def plot_bezier_corner_smoothing(
     )
 
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(0, 12)
+    ax.set_aspect("auto", adjustable="box")
+    ax.set_xlim(0, 8)
     ax.set_ylim(0, 10)
-    ax.set_xticks(np.arange(0, 13, 1))
+    ax.set_xticks(np.arange(0, 9, 1))
     ax.set_yticks(np.arange(0, 11, 1))
     ax.grid(True, linestyle=":", linewidth=0.8, alpha=0.7)
 
@@ -325,14 +343,15 @@ def plot_bezier_corner_smoothing(
         s=80,
         zorder=5,
     )
-    ax.text(entry_point[0] - 1.7, entry_point[1] + 0.2, "$P_{entry}$", fontsize=16)
-    ax.text(exit_point[0] + 0.3, exit_point[1] + 0.2, "$P_{exit}$", fontsize=16)
-    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$", fontsize=16)
+    ax.text(entry_point[0] - 0.7, entry_point[1] + 0.2, "$P_{entry}$", fontsize=18)
+    ax.text(exit_point[0] + 0.2, exit_point[1] + 0.2, "$P_{exit}$", fontsize=18)
+    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$", fontsize=18)
 
-    ax.set_xlabel("Trục X", fontsize=14)
-    ax.set_ylabel("Trục Y", fontsize=14)
+    ax.set_xlabel("Trục X", fontsize=18, color=TEXT_SLIDE)
+    ax.set_ylabel("Trục Y", fontsize=18, color=TEXT_SLIDE)
     ax.legend(fontsize=14)
     ax.grid(True, linestyle=grid_style)
+
     fig.tight_layout()
     _save_fig(fig, out_path)
     print(f"[VISUALIZATION] Bezier saved to '{out_path}'")

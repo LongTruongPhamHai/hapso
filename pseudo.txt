@@ -1,42 +1,41 @@
-Algorithm 1: HAPSO – Lập kế hoạch đường đi tối ưu cho UAV
-Input:  GridMap, Start, Goal
-Output: P_final hoặc None
-
 1:  if Start hoặc Goal ∉ GridMap hoặc nằm trong vật cản then
 2:      return None
 3:  P ← ASTAR(Start, Goal, GridMap)
 4:  if P = ∅ then return None
 5:  P_opt ← {P[0]}
 6:  for i ← 1 to |P| − 2 do
-7:      Particles ← INIT_SWARM(P[i−1], P[i+1])
+7:      Particles ← INIT_SWARM(P[i−1], P[i+1], N_particles)
             // Lấy mẫu t ∈ [0,1] theo (3-17)(3-18)
             // Kiểm tra hợp lệ, va chạm, khoảng cách an toàn
             // Fallback về trung điểm nếu thất bại
-8:      stagnation ← 0
+8:      stagnation ← 0     // Biến đếm số vòng lặp không cải thiện
 9:      for t ← 1 to T_max do
-10:         w ← SIW(t)                    // Trọng số quán tính ngẫu nhiên
-11:         c1, c2 ← TVAC(t)              // Hệ số học tập thích nghi
+10:         w ← SIW(t),           // Trọng số quán tính ngẫu nhiên
+11:         c1, c2 ← TVAC(t),     // Hệ số học tập thích nghi
 12:         for mỗi p ∈ Particles do
 13:             Cập nhật vận tốc theo (3-x)
 14:             Cập nhật vị trí theo (3-x)
-15:             p_opp ← SOBL(p)           // Học đối lập ngẫu nhiên
+15:             p_opp ← SOBL(p, lb_i, ub_i) 
+                // Học đối lập ngẫu nhiên
 16:             if f(p_opp) < f(p) then p ← p_opp
 17:             if f(p) < f(pbest_p) then pbest_p ← p
 18:         end for
 19:         G_best ← arg min_p f(pbest_p)
 20:         if G_best không cải thiện then 
-                stagnation ← stagnation + 1
-21:         if stagnation ≥ patience then break   // Dừng sớm
-22:     end for
-23:     P_opt ← P_opt ∪ {G_best.pos}
-24: end for
-25: P_final ← {P_opt[0]}
-26: for mỗi góc cua vượt ngưỡng trong P_opt do
-27:     Tính điểm entry, exit theo blend ratio
-28:     Sinh chuỗi điểm Bézier
-29:     if tất cả điểm Bézier đủ khoảng cách an toàn then
-30:         P_final ← P_final ∪ {chuỗi Bézier}
-31:     else
-32:         P_final ← P_final ∪ {điểm góc gốc}  // Giữ nguyên đoạn gốc
-33: end for
-34: return P_final ∪ {Goal}
+21:             stagnation ← stagnation + 1
+22:         if stagnation ≥ patience then break   // Dừng sớm
+23:     end for
+24:     P_opt ← P_opt ∪ {G_best.pos}
+25: end for
+26: P_final ← {P_opt[0]}
+27: for mỗi góc cua θ trong P_opt do
+28:     if θ > Bezier_threshold then
+29:         Tính điểm entry, exit theo tỉ lệ r
+30:         Sinh N điểm Bézier
+31:         if tất cả N điểm Bézier đủ khoảng cách an toàn then
+32:             P_final ← P_final ∪ {N điểm Bézier}
+33:         else
+34:             P_final ← P_final ∪ {điểm góc gốc}   
+                // Giữ nguyên đoạn gốc
+35: end for
+36: return P_final ∪ {Goal}

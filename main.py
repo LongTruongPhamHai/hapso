@@ -243,7 +243,7 @@ class SettingsDialog(tk.Toplevel):
         self.height_var = tk.IntVar(value=current_height)
         tk.Entry(self, textvariable=self.height_var).pack()
 
-        tk.Label(self, text="Cell Size (5-50 px):").pack(pady=(10, 0))
+        tk.Label(self, text="Cell Size (5-100 px):").pack(pady=(10, 0))
         self.cell_size_var = tk.IntVar(value=current_cell_size)
         tk.Entry(self, textvariable=self.cell_size_var).pack()
 
@@ -269,7 +269,7 @@ class SettingsDialog(tk.Toplevel):
             messagebox.showerror("Error", "Invalid input.")
             return
 
-        if not (5 <= width <= 100 and 5 <= height <= 100 and 5 <= cell_size <= 50):
+        if not (5 <= width <= 100 and 5 <= height <= 100 and 5 <= cell_size <= 100):
             messagebox.showerror("Error", "Values out of range.")
             return
 
@@ -331,7 +331,7 @@ class App:
             "All",
         ]
 
-        colors_for_algos = [BLUE, ORANGE, GREEN, VIOLET, INDIGO, YELLOW, RED]
+        colors_for_algos = [RED, GREEN, BLUE, INDIGO, YELLOW, VIOLET, ORANGE]
         self.algorithm_colors: dict[str, tuple[int, int, int]] = {
             name: colors_for_algos[i % len(colors_for_algos)]
             for i, name in enumerate(self.algorithm_names)
@@ -744,7 +744,7 @@ class App:
                 self._stop_simulation()
 
             case "A-Star":
-                planner = Astar(self.grid_map, min_clearance=0.0)
+                planner = Astar(self.grid_map, min_clearance=1.0)
 
                 algo_t0 = time.perf_counter()
                 self.current_path = planner.plan()
@@ -778,7 +778,7 @@ class App:
                         planner = PRM(self.grid_map)
 
                     elif name == "A-Star":
-                        planner = Astar(self.grid_map, min_clearance=0.0)
+                        planner = Astar(self.grid_map, min_clearance=1.0)
 
                     elif name == "HAPSO":
                         planner = HAPSO(self.grid_map)

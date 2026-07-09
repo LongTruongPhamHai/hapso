@@ -215,16 +215,6 @@ def compute_fitness(
     )
 
 
-def total_fitness(
-    path: list[tuple[float, float]],
-    grid_map: GridMap,
-    reference_metrics: dict | None = None,
-) -> float:
-    return compute_fitness(
-        path=path, grid_map=grid_map, reference_metrics=reference_metrics
-    )
-
-
 def get_nearby_obstacle(
     start_point: tuple[float, float],
     end_point: tuple[float, float],
@@ -422,17 +412,17 @@ def print_batch_summary_report(
     best_run: dict | None,
     run_records: list[dict],
 ) -> None:
-    def _series(key):
+    def _series(key, require_found=True):
         return [
             r[key]
             for r in run_records
-            if r.get("Found_Path") and r.get(key) is not None
+            if (not require_found or r.get("Found_Path")) and r.get(key) is not None
         ]
 
     dist_vals = _series("Total_Distance")
     angle_vals = _series("Average_Angle")
     clear_vals = _series("Min_Clearance")
-    time_vals = _series("Execution_Time_s")
+    time_vals = _series("Execution_Time_s", require_found=False)
     fit_vals = _series("TOTAL_FITNESS")
 
     def _stats(vals: list[float], higher_is_better: bool = False) -> tuple:
@@ -603,3 +593,18 @@ def _save_metrics_xlsx(
         ws_sum.append([k, round(v, 4) if isinstance(v, float) else v])
 
     wb.save(run_dir / "metrics.xlsx")
+
+    # Phan bien thay Nam
+    # payload = {
+    #     "Algorithm": algorithm_name,
+    #     "Map": map_name,
+    #     "Start time": start_time,
+    #     "End time": end_time,
+    #     "Result": "SUCCESS" if path else "FAILED",
+    #     "Waypoint count": len(path),
+    #     "Metrics": metrics,
+    # }
+
+    # out = run_dir / "metrics.json"
+    # with out.open("w", encoding="utf-8") as f:
+    #     json.dump(payload, f, indent=2, ensure_ascii=False)

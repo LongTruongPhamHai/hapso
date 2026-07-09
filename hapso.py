@@ -2,6 +2,7 @@ from astar import Astar
 from config.parameter import (
     MIN_CLEARANCE,
     COLLISION_PENALTY,
+    SAFETY_PENALTY,
     PSO_PATIENCE,
     PSO_N_PARTICLES,
     PSO_MAX_INIT_ATTEMPTS,
@@ -33,6 +34,7 @@ from random import gauss, uniform
 from typing import Optional
 from utils import (
     compute_fitness,
+    compute_path_length,
     euclidean_distance,
     min_distance_line_to_obstacle,
     round_pos,
@@ -46,6 +48,7 @@ class HAPSO:
         grid_map: GridMap,
         min_clearance: float = MIN_CLEARANCE,
         collision_penalty: float = COLLISION_PENALTY,
+        safety_penalty: float = SAFETY_PENALTY,
         patience: int = PSO_PATIENCE,
         n_particles: int = PSO_N_PARTICLES,
         max_init_attempts: int = PSO_MAX_INIT_ATTEMPTS,
@@ -77,6 +80,7 @@ class HAPSO:
 
         self.min_clearance = float(min_clearance)
         self.collision_penalty = collision_penalty
+        self.safety_penalty = safety_penalty
 
         self.patience = patience
         self.n_particles = n_particles
@@ -148,15 +152,48 @@ class HAPSO:
         for i in range(1, len(path) - 1):
             prev_point = optimized[-1]
             next_point = path[i + 1]
+            original_point = path[i]
+
+            reference_metrics = self._build_reference_metrics(
+                prev_point, original_point, next_point
+            )
 
             particles = self._init_particles(prev_point, next_point)
-            best_pos = self._run_pso_segment(particles, prev_point, next_point)
-            optimized.append(round_pos(best_pos))
+            best_pos, best_fitness = self._run_pso_segment(
+                particles, prev_point, next_point, reference_metrics
+            )
+
+            if best_fitness >= self.safety_penalty:
+                optimized.append(round_pos(original_point))
+            else:
+                optimized.append(round_pos(best_pos))
 
         return optimized
 
+    def _build_reference_metrics(
+        self,
+        prev_point: tuple[float, float],
+        original_point: tuple[float, float],
+        next_point: tuple[float, float],
+    ) -> dict:
+        baseline_path = [prev_point, original_point, next_point]
+        baseline_angle = turning_angle(prev_point, original_point, next_point)
+        baseline_clearance = min_distance_line_to_obstacle(
+            prev_point, next_point, self.grid_map
+        )
+
+        return {
+            "distance": compute_path_length(baseline_path),
+            "avg_angle": baseline_angle,
+            "max_angle": baseline_angle,
+            "clearance": 1.0 / (baseline_clearance + 1e-6),
+        }
+
     def _init_particles(
-        self, prev_point: tuple[float, float], next_point: tuple[float, float]
+        self,
+        prev_point: tuple[float, float],
+        next_point: tuple[float, float],
+        reference_metrics: dict | None = None,
     ) -> list[dict]:
         particles = []
 
@@ -170,7 +207,9 @@ class HAPSO:
             vel_x = uniform(-max_vel, max_vel)
             vel_y = uniform(-max_vel, max_vel)
 
-            fitness = self._eval_fitness((px, py), prev_point, next_point)
+            fitness = self._eval_fitness(
+                (px, py), prev_point, next_point, reference_metrics
+            )
 
             particles.append(
                 {
@@ -207,17 +246,28 @@ class HAPSO:
 
             return (px, py)
 
-        return (
+        mid = (
             round((prev_point[0] + next_point[0]) / 2.0, 2),
             round((prev_point[1] + next_point[1]) / 2.0, 2),
         )
+
+        if (
+            self.grid_map.is_inside(mid[0], mid[1])
+            and not self.grid_map.is_obstacle(int(mid[0]), int(mid[1]))
+            and min_distance_line_to_obstacle(mid, mid, self.grid_map)
+            >= self.min_clearance
+        ):
+            return mid
+
+        return prev_point
 
     def _run_pso_segment(
         self,
         particles: list[dict],
         prev_point: tuple[float, float],
         next_point: tuple[float, float],
-    ) -> tuple[float, float]:
+        reference_metrics: dict | None = None,
+    ) -> tuple[tuple[float, float], float]:
         gbest = min(particles, key=lambda p: p["best_fitness"])
         gbest_pos = gbest["best_pos"]
         gbest_fitness = gbest["best_fitness"]
@@ -271,7 +321,9 @@ class HAPSO:
 
                 else:
                     p["pos"] = new_pos
-                    p["fitness"] = self._eval_fitness(new_pos, prev_point, next_point)
+                    p["fitness"] = self._eval_fitness(
+                        new_pos, prev_point, next_point, reference_metrics
+                    )
 
                 p["vel"] = (new_vel_x, new_vel_y)
 
@@ -279,10 +331,9 @@ class HAPSO:
                     p["best_fitness"] = p["fitness"]
                     p["best_pos"] = p["pos"]
 
-                candidate = min(particles, key=lambda p: p["best_fitness"])
-                if candidate["best_fitness"] < gbest_fitness:
-                    gbest_fitness = candidate["best_fitness"]
-                    gbest_pos = candidate["best_pos"]
+                    if p["best_fitness"] < gbest_fitness:
+                        gbest_fitness = p["best_fitness"]
+                        gbest_pos = p["best_pos"]
 
             if gbest_fitness < prev_gbest_fitness - 1e-6:
                 stagnation_count = 0
@@ -292,19 +343,21 @@ class HAPSO:
                 if stagnation_count >= self.patience:
                     break
 
-        return gbest_pos
+        return gbest_pos, gbest_fitness
 
     def _eval_fitness(
         self,
         particle_pos: tuple[float, float],
         prev_point: tuple[float, float],
         next_point: tuple[float, float],
+        reference_metrics: dict | None = None,
     ) -> float:
         return compute_fitness(
-            [prev_point, particle_pos, next_point],
-            self.grid_map,
-            self.min_clearance,
-            self.collision_penalty,
+            path=[prev_point, particle_pos, next_point],
+            grid_map=self.grid_map,
+            min_clearance=self.min_clearance,
+            collision_penalty=self.collision_penalty,
+            reference_metrics=reference_metrics,
         )
 
     def _inertia_weight(self, it: int) -> float:
@@ -384,22 +437,18 @@ class HAPSO:
                 )
                 bezier_pts.append(round_pos((bx, by)))
 
-            is_safe = (
-                min_distance_line_to_obstacle(
-                    smoothed[-1], bezier_pts[0], self.grid_map
-                )
-                > self.min_clearance
-            )
-            if is_safe:
-                for k in range(len(bezier_pts) - 1):
-                    if not (
-                        min_distance_line_to_obstacle(
-                            smoothed[-1], bezier_pts[0], self.grid_map
-                        )
-                        > self.min_clearance
-                    ):
-                        is_safe = False
-                        break
+            is_safe = True
+            check_prev = smoothed[-1]
+
+            for pt in bezier_pts:
+                if (
+                    min_distance_line_to_obstacle(check_prev, pt, self.grid_map)
+                    <= self.min_clearance
+                ):
+                    is_safe = False
+                    break
+
+                check_prev = pt
 
             if is_safe:
                 smoothed.extend(bezier_pts)

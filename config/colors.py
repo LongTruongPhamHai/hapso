@@ -24,3 +24,5 @@ CHART_GOLD: str = "#FFD700"
 
 CHART_COLORS = ["#1f77b4", "#17becf", "#2ca02c", "#9467bd"]
 CHART_HATCHES = ["", "/", "x", "-"]
+
+TEXT_SLIDE = "#1932b0"

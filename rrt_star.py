@@ -193,7 +193,9 @@ class RRTStar:
         nearest_node: RRTStarNode,
         point: tuple[int, int],
     ) -> Optional[RRTStarNode]:
-        candidates = neighbors if neighbors else [nearest_node]
+        candidates = (
+            neighbors + [nearest_node] if nearest_node not in neighbors else neighbors
+        )
         best_node = None
         best_cost = float("inf")
 

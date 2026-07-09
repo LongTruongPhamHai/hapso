@@ -216,10 +216,16 @@ class PRM:
         return path
 
     def _segment_has_collision(
-        self,
-        point_a: tuple[float, float],
-        point_b: tuple[float, float],
+        self, point_a: tuple[int, int], point_b: tuple[int, int]
     ) -> bool:
+        # for x, y in self._bresenham_line(
+        #     point_a[0], point_a[1], point_b[0], point_b[1]
+        # ):
+        #     if not self.grid_map.is_inside(x, y) or self.grid_map.is_obstacle(x, y):
+        #         return True
+
+        # return False
+
         if (
             min_distance_line_to_obstacle(point_a, point_b, self.grid_map)
             <= self.min_clearance
@@ -227,3 +233,34 @@ class PRM:
             return True
 
         return False
+
+    def _bresenham_line(
+        self,
+        x_start: int,
+        y_start: int,
+        x_end: int,
+        y_end: int,
+    ) -> list[tuple[int, int]]:
+        points: list[tuple[int, int]] = []
+        delta_x = abs(x_end - x_start)
+        delta_y = abs(y_end - y_start)
+
+        step_x = 1 if x_start < x_end else -1
+        step_y = 1 if y_start < y_end else -1
+        err = delta_x - delta_y
+
+        x, y = x_start, y_start
+        while True:
+            points.append((x, y))
+            if x == x_end and y == y_end:
+                break
+
+            e2 = 2 * err
+            if e2 > -delta_y:
+                err -= delta_y
+                x += step_x
+            if e2 < delta_x:
+                err += delta_x
+                y += step_y
+
+        return points
