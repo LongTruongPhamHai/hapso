@@ -1,0 +1,58 @@
+{
+  "algorithm": "PRM",
+  "map": "OT02",
+  "start_time": "2026-07-04 09:43:14",
+  "end_time": "2026-07-04 09:43:15",
+  "success": true,
+  "waypoint_count": 9,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      5,
+      7
+    ],
+    [
+      9,
+      9
+    ],
+    [
+      10,
+      13
+    ],
+    [
+      21,
+      15
+    ],
+    [
+      24,
+      20
+    ],
+    [
+      27,
+      21
+    ],
+    [
+      29,
+      29
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 45.6744,
+    "Total waypoint": 9,
+    "Total angle": 308.4266,
+    "Min angle": 14.0362,
+    "Max angle": 65.6589,
+    "Average angle": 44.0609,
+    "Min clearance": 1.029,
+    "TOTAL FITNESS": 0.7244,
+    "Execution time": 0.944
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "algorithm": "PRM",
+  "map": "DR",
+  "start_time": "2026-07-01 10:28:02",
+  "end_time": "2026-07-01 10:28:02",
+  "success": false,
+  "waypoint_count": 6,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      6,
+      5
+    ],
+    [
+      10,
+      2
+    ],
+    [
+      12,
+      5
+    ],
+    [
+      14,
+      14
+    ]
+  ],
+  "metrics": {
+    "Result": false,
+    "Total distance": null,
+    "Total waypoint": null,
+    "Total angle": null,
+    "Min angle": null,
+    "Max angle": null,
+    "Average angle": null,
+    "Min clearance": null,
+    "TOTAL FITNESS": null,
+    "Execution time": 0.2364
+  }
+}

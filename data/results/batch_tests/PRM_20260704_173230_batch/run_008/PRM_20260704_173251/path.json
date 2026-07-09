@@ -1,0 +1,21 @@
+{
+  "algorithm": "PRM",
+  "map": "OT04",
+  "start_time": "2026-07-04 17:32:48",
+  "end_time": "2026-07-04 17:32:51",
+  "success": false,
+  "waypoint_count": 0,
+  "path": [],
+  "metrics": {
+    "Result": false,
+    "Total distance": null,
+    "Total waypoint": null,
+    "Total angle": null,
+    "Min angle": null,
+    "Max angle": null,
+    "Average angle": null,
+    "Min clearance": null,
+    "TOTAL FITNESS": null,
+    "Execution time": 2.9124
+  }
+}

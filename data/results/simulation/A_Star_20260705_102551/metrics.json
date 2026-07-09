@@ -1,0 +1,12 @@
+{
+  "Result": true,
+  "Total distance": 92.52691193458116,
+  "Total waypoint": 84,
+  "Total angle": 1035.0,
+  "Min angle": 0.0,
+  "Max angle": 90.0,
+  "Average angle": 12.621951219512194,
+  "Min clearance": 1.4142135623730951,
+  "TOTAL FITNESS": 0.9374325230127007,
+  "Execution time": 0.015324100153520703
+}

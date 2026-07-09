@@ -1,0 +1,21 @@
+{
+  "algorithm": "RRT-Star",
+  "map": "OT05",
+  "start_time": "2026-07-05 21:48:28",
+  "end_time": "2026-07-05 21:48:28",
+  "success": false,
+  "waypoint_count": 0,
+  "path": [],
+  "metrics": {
+    "Result": false,
+    "Total distance": null,
+    "Total waypoint": null,
+    "Total angle": null,
+    "Min angle": null,
+    "Max angle": null,
+    "Average angle": null,
+    "Min clearance": null,
+    "TOTAL FITNESS": null,
+    "Execution time": 0.1454
+  }
+}

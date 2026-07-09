@@ -1,0 +1,102 @@
+{
+  "algorithm": "A-Star",
+  "map": "N/A",
+  "start_time": "N/A",
+  "end_time": "N/A",
+  "success": true,
+  "waypoint_count": 20,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      6,
+      6
+    ],
+    [
+      7,
+      6
+    ],
+    [
+      8,
+      6
+    ],
+    [
+      9,
+      6
+    ],
+    [
+      10,
+      6
+    ],
+    [
+      11,
+      7
+    ],
+    [
+      11,
+      8
+    ],
+    [
+      12,
+      9
+    ],
+    [
+      12,
+      10
+    ],
+    [
+      13,
+      11
+    ],
+    [
+      13,
+      12
+    ],
+    [
+      14,
+      13
+    ],
+    [
+      14,
+      14
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 22.7279,
+    "Total waypoint": 20,
+    "Total angle": 495.0,
+    "Min angle": 0.0,
+    "Max angle": 45.0,
+    "Average angle": 27.5,
+    "Min clearance": 0.7071,
+    "TOTAL FITNESS": 5.0,
+    "Execution time": 0.0005
+  }
+}

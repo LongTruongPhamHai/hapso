@@ -1,0 +1,66 @@
+{
+  "algorithm": "PRM",
+  "map": "KB02-MZ",
+  "start_time": "2026-06-18 14:32:54",
+  "end_time": "2026-06-18 14:32:54",
+  "success": false,
+  "waypoint_count": 11,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      13,
+      2
+    ],
+    [
+      16,
+      5
+    ],
+    [
+      7,
+      9
+    ],
+    [
+      16,
+      14
+    ],
+    [
+      16,
+      21
+    ],
+    [
+      3,
+      23
+    ],
+    [
+      3,
+      26
+    ],
+    [
+      4,
+      26
+    ],
+    [
+      18,
+      28
+    ],
+    [
+      29,
+      29
+    ]
+  ],
+  "metrics": {
+    "Result": false,
+    "Total distance": null,
+    "Total waypoint": null,
+    "Total angle": null,
+    "Min angle": null,
+    "Max angle": null,
+    "Average angle": null,
+    "Min clearance": null,
+    "TOTAL FITNESS": null,
+    "Execution time": 0.1949
+  }
+}

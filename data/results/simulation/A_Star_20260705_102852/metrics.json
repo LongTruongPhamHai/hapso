@@ -1,0 +1,20 @@
+{
+  "Algorithm": "A-Star",
+  "Map": "KB01_ES",
+  "Start time": "N/A",
+  "End time": "N/A",
+  "Result": "SUCCESS",
+  "Waypoint count": 35,
+  "Metrics": {
+    "Result": true,
+    "Total distance": 43.94112549695427,
+    "Total waypoint": 35,
+    "Total angle": 405.0,
+    "Min angle": 0.0,
+    "Max angle": 45.0,
+    "Average angle": 12.272727272727273,
+    "Min clearance": 1.4142135623730951,
+    "TOTAL FITNESS": 0.5682971006057498,
+    "Execution time": 0.005525999935343862
+  }
+}

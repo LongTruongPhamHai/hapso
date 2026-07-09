@@ -1,0 +1,50 @@
+{
+  "algorithm": "A-Star",
+  "map": "N/A",
+  "start_time": "N/A",
+  "end_time": "N/A",
+  "success": true,
+  "waypoint_count": 7,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      2
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      4,
+      4
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 6.8284,
+    "Total waypoint": 7,
+    "Total angle": 90.0,
+    "Min angle": 0.0,
+    "Max angle": 45.0,
+    "Average angle": 18.0,
+    "Min clearance": 1.4142,
+    "TOTAL FITNESS": 0.5568,
+    "Execution time": 0.0007
+  }
+}

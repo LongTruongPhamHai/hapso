@@ -1,0 +1,90 @@
+{
+  "algorithm": "RRT-Star",
+  "map": "N/A",
+  "start_time": "N/A",
+  "end_time": "N/A",
+  "success": true,
+  "waypoint_count": 17,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      7,
+      0
+    ],
+    [
+      10,
+      1
+    ],
+    [
+      12,
+      3
+    ],
+    [
+      10,
+      5
+    ],
+    [
+      8,
+      6
+    ],
+    [
+      6,
+      7
+    ],
+    [
+      4,
+      8
+    ],
+    [
+      3,
+      9
+    ],
+    [
+      2,
+      12
+    ],
+    [
+      5,
+      13
+    ],
+    [
+      7,
+      14
+    ],
+    [
+      8,
+      14
+    ],
+    [
+      9,
+      14
+    ],
+    [
+      11,
+      14
+    ],
+    [
+      14,
+      14
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 39.5022,
+    "Total waypoint": 17,
+    "Total angle": 323.1301,
+    "Min angle": 0.0,
+    "Max angle": 90.0,
+    "Average angle": 21.542,
+    "Min clearance": 1.2649,
+    "TOTAL FITNESS": 0.8817,
+    "Execution time": 0.0772
+  }
+}

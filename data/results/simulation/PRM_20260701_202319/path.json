@@ -1,0 +1,38 @@
+{
+  "algorithm": "PRM",
+  "map": "N/A",
+  "start_time": "N/A",
+  "end_time": "N/A",
+  "success": false,
+  "waypoint_count": 4,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      6,
+      5
+    ],
+    [
+      6,
+      10
+    ],
+    [
+      14,
+      14
+    ]
+  ],
+  "metrics": {
+    "Result": false,
+    "Total distance": null,
+    "Total waypoint": null,
+    "Total angle": null,
+    "Min angle": null,
+    "Max angle": null,
+    "Average angle": null,
+    "Min clearance": null,
+    "TOTAL FITNESS": null,
+    "Execution time": 0.2599
+  }
+}

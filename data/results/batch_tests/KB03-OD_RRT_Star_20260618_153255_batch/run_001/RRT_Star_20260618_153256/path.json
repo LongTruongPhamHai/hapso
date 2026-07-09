@@ -1,0 +1,90 @@
+{
+  "algorithm": "RRT-Star",
+  "map": "KB03-OD",
+  "start_time": "2026-06-18 15:32:56",
+  "end_time": "2026-06-18 15:32:56",
+  "success": true,
+  "waypoint_count": 17,
+  "path": [
+    [
+      1,
+      28
+    ],
+    [
+      1,
+      25
+    ],
+    [
+      2,
+      21
+    ],
+    [
+      7,
+      22
+    ],
+    [
+      10,
+      23
+    ],
+    [
+      14,
+      21
+    ],
+    [
+      14,
+      18
+    ],
+    [
+      14,
+      14
+    ],
+    [
+      14,
+      11
+    ],
+    [
+      14,
+      8
+    ],
+    [
+      14,
+      5
+    ],
+    [
+      15,
+      2
+    ],
+    [
+      18,
+      1
+    ],
+    [
+      21,
+      1
+    ],
+    [
+      24,
+      1
+    ],
+    [
+      27,
+      1
+    ],
+    [
+      28,
+      1
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 52.1811,
+    "Total waypoint": 17,
+    "Total angle": 306.8699,
+    "Min angle": 0.0,
+    "Max angle": 87.2737,
+    "Average angle": 20.458,
+    "Min clearance": 1.2649,
+    "TOTAL FITNESS": 0.6887,
+    "Execution time": 0.2366
+  }
+}

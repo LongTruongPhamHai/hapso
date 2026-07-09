@@ -1,0 +1,50 @@
+{
+  "algorithm": "PRM",
+  "map": "N/A",
+  "start_time": "N/A",
+  "end_time": "N/A",
+  "success": true,
+  "waypoint_count": 7,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      3,
+      5
+    ],
+    [
+      6,
+      7
+    ],
+    [
+      10,
+      5
+    ],
+    [
+      12,
+      8
+    ],
+    [
+      13,
+      11
+    ],
+    [
+      14,
+      14
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 23.8387,
+    "Total waypoint": 7,
+    "Total angle": 183.7314,
+    "Min angle": 0.0,
+    "Max angle": 82.875,
+    "Average angle": 36.7463,
+    "Min clearance": 1.1094,
+    "TOTAL FITNESS": 0.7148,
+    "Execution time": 0.9608
+  }
+}

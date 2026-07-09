@@ -1,0 +1,78 @@
+{
+  "algorithm": "HAPSO",
+  "map": "N/A",
+  "start_time": "N/A",
+  "end_time": "N/A",
+  "success": true,
+  "waypoint_count": 14,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      0.0,
+      0.89
+    ],
+    [
+      0.0,
+      1.13
+    ],
+    [
+      0.02,
+      1.35
+    ],
+    [
+      0.04,
+      1.54
+    ],
+    [
+      0.08,
+      1.71
+    ],
+    [
+      0.12,
+      1.85
+    ],
+    [
+      0.17,
+      1.97
+    ],
+    [
+      0.23,
+      2.06
+    ],
+    [
+      0.46,
+      2.35
+    ],
+    [
+      1.54,
+      3.51
+    ],
+    [
+      2.78,
+      3.93
+    ],
+    [
+      3.45,
+      3.97
+    ],
+    [
+      4,
+      4
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 6.5866,
+    "Total waypoint": 14,
+    "Total angle": 86.8779,
+    "Min angle": 0.0,
+    "Max angle": 28.3337,
+    "Average angle": 7.2398,
+    "Min clearance": 1.3656,
+    "TOTAL FITNESS": 0.5269,
+    "Execution time": 0.0499
+  }
+}
