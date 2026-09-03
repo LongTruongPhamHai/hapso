@@ -1,0 +1,58 @@
+{
+  "algorithm": "PRM",
+  "map": "KB03-OD",
+  "start_time": "2026-08-07 13:45:05",
+  "end_time": "2026-08-07 13:45:07",
+  "success": true,
+  "waypoint_count": 9,
+  "path": [
+    [
+      1,
+      28
+    ],
+    [
+      1,
+      23
+    ],
+    [
+      4,
+      21
+    ],
+    [
+      12,
+      22
+    ],
+    [
+      14,
+      19
+    ],
+    [
+      14,
+      18
+    ],
+    [
+      14,
+      3
+    ],
+    [
+      16,
+      1
+    ],
+    [
+      28,
+      1
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 51.1018,
+    "Total waypoint": 9,
+    "Total angle": 284.25,
+    "Min angle": 0.0,
+    "Max angle": 63.4349,
+    "Average angle": 40.6071,
+    "Min clearance": 1.1094,
+    "TOTAL FITNESS": 0.7347,
+    "Execution time": 1.889
+  }
+}

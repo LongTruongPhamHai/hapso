@@ -1,0 +1,66 @@
+{
+  "algorithm": "PRM",
+  "map": "KB02-CL",
+  "start_time": "2026-08-07 07:50:48",
+  "end_time": "2026-08-07 07:50:49",
+  "success": true,
+  "waypoint_count": 11,
+  "path": [
+    [
+      0,
+      0
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      8,
+      2
+    ],
+    [
+      10,
+      5
+    ],
+    [
+      9,
+      9
+    ],
+    [
+      11,
+      20
+    ],
+    [
+      9,
+      22
+    ],
+    [
+      11,
+      24
+    ],
+    [
+      14,
+      26
+    ],
+    [
+      17,
+      27
+    ],
+    [
+      29,
+      29
+    ]
+  ],
+  "metrics": {
+    "Result": true,
+    "Total distance": 52.1048,
+    "Total waypoint": 11,
+    "Total angle": 309.2199,
+    "Min angle": 8.9726,
+    "Max angle": 90.0,
+    "Average angle": 34.3578,
+    "Min clearance": 1.0733,
+    "TOTAL FITNESS": 0.7552,
+    "Execution time": 1.7722
+  }
+}

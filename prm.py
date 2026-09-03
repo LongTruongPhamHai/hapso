@@ -234,33 +234,33 @@ class PRM:
 
         return False
 
-    def _bresenham_line(
-        self,
-        x_start: int,
-        y_start: int,
-        x_end: int,
-        y_end: int,
-    ) -> list[tuple[int, int]]:
-        points: list[tuple[int, int]] = []
-        delta_x = abs(x_end - x_start)
-        delta_y = abs(y_end - y_start)
+    # def _bresenham_line(
+    #     self,
+    #     x_start: int,
+    #     y_start: int,
+    #     x_end: int,
+    #     y_end: int,
+    # ) -> list[tuple[int, int]]:
+    #     points: list[tuple[int, int]] = []
+    #     delta_x = abs(x_end - x_start)
+    #     delta_y = abs(y_end - y_start)
 
-        step_x = 1 if x_start < x_end else -1
-        step_y = 1 if y_start < y_end else -1
-        err = delta_x - delta_y
+    #     step_x = 1 if x_start < x_end else -1
+    #     step_y = 1 if y_start < y_end else -1
+    #     err = delta_x - delta_y
 
-        x, y = x_start, y_start
-        while True:
-            points.append((x, y))
-            if x == x_end and y == y_end:
-                break
+    #     x, y = x_start, y_start
+    #     while True:
+    #         points.append((x, y))
+    #         if x == x_end and y == y_end:
+    #             break
 
-            e2 = 2 * err
-            if e2 > -delta_y:
-                err -= delta_y
-                x += step_x
-            if e2 < delta_x:
-                err += delta_x
-                y += step_y
+    #         e2 = 2 * err
+    #         if e2 > -delta_y:
+    #             err -= delta_y
+    #             x += step_x
+    #         if e2 < delta_x:
+    #             err += delta_x
+    #             y += step_y
 
-        return points
+    #     return points

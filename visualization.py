@@ -11,7 +11,7 @@ from config.colors import (
     CHART_PURPLE,
     CHART_GOLD,
     HEX_MEDIUM,
-    TEXT_SLIDE,
+    BLACK,
 )
 from typing import Dict, List, Optional, Tuple
 
@@ -21,44 +21,104 @@ import matplotlib.patches as mpatches
 import numpy as np
 import os
 
-plt.rcParams["font.family"] = ["DejaVu Sans", "sans-serif"]
+# ---------------------------------------------------------------------------
+# Report-friendly global font settings: Arial, sized to sit comfortably next
+# to 10pt body text. Matplotlib falls back to Liberation Sans / DejaVu Sans
+# if Arial isn't installed on the rendering machine (Liberation Sans is
+# metric-compatible with Arial, so it's a safe fallback), so this still
+# renders sensibly outside Windows/Office environments.
+# ---------------------------------------------------------------------------
+plt.rcParams["font.family"] = ["Arial", "Liberation Sans", "DejaVu Sans", "sans-serif"]
 
-# MAP_NAME = "KB02-MZ"
-# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-# Tỷ lệ thành công	70.0	10.0	100.0	100.0
-# Độ dài đường đi	100.0793	87.5287	84.527	85.9735
-# Góc quay trung bình	30.9597	47.2212	15.203	6.6081
-# Khoảng cách an toàn 	1.2205	0.7071	0.7071	1.0011
-# Thời gian tính toán	0.1943	0.2518	0.0048	1.9978
-# Hàm đánh giá	1.0622	5.0000	5	0.9366
-# """
-# MAP_NAME = "KB02-CL"
-# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-# Tỷ lệ thành công	90.0	0.0	100.0	100.0
-# Độ dài đường đi	57.3003	–	43.3553	50.7023
-# Góc quay trung bình	31.5568	–	9.8438	6.9699
-# Khoảng cách an toàn 	1.1267	–	0.7071	1.0453
-# Thời gian tính toán	0.133	0.2013	0.0096	1.2786
-# Hàm đánh giá	0.7756	–	5	0.6734
-# """
-# MAP_NAME = "KB03-ID"
-# COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-# Tỷ lệ thành công	90.0	10.0	100.0	100.0
-# Độ dài đường đi	33.7909	27.4441	28.3137	32.2559
-# Góc quay trung bình	27.4363	29.8106	18.75	8.4228
-# Khoảng cách an toàn 	1.1712	0.7593	0.7071	1.1232
-# Thời gian tính toán	0.2366	0.2325	0.0015	0.6411
-# Hàm đánh giá	0.5793	5	5	0.525
-# """
-MAP_NAME = "KB03-OD"
-COMPARISON_TABLE = """Thuật toán	RRT*	PRM	A*	HAPSO
-Tỷ lệ thành công	100.0	10.0	100.0	100.0
-Độ dài đường đi	53.1532	48.8074	49.3137	50.123
-Góc quay trung bình	14.9267	42.3634	9	4.3502
-Khoảng cách an toàn 	1.3097	0.7071	0.7071	1.1729
-Thời gian tính toán	0.2157	0.2009	0.0021	1.1606
-Hàm đánh giá	0.6695	5	5	0.634
+# Centralized font sizes (pt), tuned to sit next to 10pt body text in a report:
+#   - subplot titles slightly above body text
+#   - axis labels roughly at body text size
+#   - tick labels / legend / in-chart annotations slightly below body text
+FS_TITLE = 11  # subplot titles (e.g. "Early stage", "With SOBL")
+FS_AXIS_LABEL = 10  # axis labels (xlabel/ylabel)
+FS_TICK = 9  # tick labels
+FS_LEGEND = 9  # legend text
+FS_ANNOT = 8  # in-chart value annotations / point labels
+
+plt.rcParams["axes.titlesize"] = FS_TITLE
+plt.rcParams["axes.labelsize"] = FS_AXIS_LABEL
+plt.rcParams["xtick.labelsize"] = FS_TICK
+plt.rcParams["ytick.labelsize"] = FS_TICK
+plt.rcParams["legend.fontsize"] = FS_LEGEND
+plt.rcParams["font.size"] = FS_AXIS_LABEL
+
+# Each entry: map name -> raw comparison table (tab-separated, Vietnamese metric
+# names kept as keys since _parse_comparison_table matches on them, but display
+# labels are translated to English via METRIC_LABEL_MAP / ALGO no translation needed).
+COMPARISON_TABLES: Dict[str, str] = {
+    "KB02-MZ": """Thuật toán\tRRT*\tPRM\tA*\tHAPSO
+Tỷ lệ thành công\t70.0\t10.0\t100.0\t100.0
+Độ dài đường đi\t100.0793\t87.5287\t84.527\t85.9735
+Góc quay trung bình\t30.9597\t47.2212\t15.203\t6.6081
+Khoảng cách an toàn \t1.2205\t0.7071\t0.7071\t1.0011
+Thời gian tính toán\t0.1943\t0.2518\t0.0048\t1.9978
+Hàm đánh giá\t1.0622\t5.0000\t5\t0.9366
+""",
+    "KB02-CL": """Thuật toán\tRRT*\tPRM\tA*\tHAPSO
+Tỷ lệ thành công\t90.0\t0.0\t100.0\t100.0
+Độ dài đường đi\t57.3003\t–\t43.3553\t50.7023
+Góc quay trung bình\t31.5568\t–\t9.8438\t6.9699
+Khoảng cách an toàn \t1.1267\t–\t0.7071\t1.0453
+Thời gian tính toán\t0.133\t0.2013\t0.0096\t1.2786
+Hàm đánh giá\t0.7756\t–\t5\t0.6734
+""",
+    "KB03-ID": """Thuật toán\tRRT*\tPRM\tA*\tHAPSO
+Tỷ lệ thành công\t90.0\t10.0\t100.0\t100.0
+Độ dài đường đi\t33.7909\t27.4441\t28.3137\t32.2559
+Góc quay trung bình\t27.4363\t29.8106\t18.75\t8.4228
+Khoảng cách an toàn \t1.1712\t0.7593\t0.7071\t1.1232
+Thời gian tính toán\t0.2366\t0.2325\t0.0015\t0.6411
+Hàm đánh giá\t0.5793\t5\t5\t0.525
+""",
+    "KB03-OD": """Thuật toán\tRRT*\tPRM\tA*\tHAPSO
+Tỷ lệ thành công\t100.0\t10.0\t100.0\t100.0
+Độ dài đường đi\t53.1532\t48.8074\t49.3137\t50.123
+Góc quay trung bình\t14.9267\t42.3634\t9\t4.3502
+Khoảng cách an toàn \t1.3097\t0.7071\t0.7071\t1.1729
+Thời gian tính toán\t0.2157\t0.2009\t0.0021\t1.1606
+Hàm đánh giá\t0.6695\t5\t5\t0.634
+""",
+}
+
+# Pick which maps go into the combined comparison figure.
+COMPARISON_MAP_GROUP: List[str] = ["KB02-MZ", "KB02-CL"]
+
+# Wide-format table pasted directly from Word/Excel: several maps side by
+# side, one column per algorithm per map. Parsed with
+# `parse_wide_comparison_table`. Metric names here are already in English,
+# so they are used as-is (see METRIC_LABEL_MAP fallback behavior below).
+WIDE_COMPARISON_TABLE = """Map name\tKB02-MZ\tKB02-CL
+Metric\tRRT*\tPRM\tA*\tHAPSO\tRRT*\tPRM\tA*\tHAPSO
+Success Rate (%)\t70%\t100%\t100%\t100%\t100%\t100%\t100%\t100%
+Path length (Cell)\t101.73\t91.96\t84.52\t86.32\t58.77\t52.41\t43.35\t50.58
+Avg turning angle (Degree)\t30.80\t55.53\t15.20\t6.73\t31.88\t46.78\t9.84\t6.76
+Minimum clearance (Cell)\t1.24\t1.04\t0.70\t1.00\t1.13\t1.06\t0.70\t1.02
+Computation time (Second)\t0.21\t1.10\t0.01\t1.75\t0.21\t1.65\t0.01\t1.26
+Composite fitness\t1.06\t1.09\t5.00\t0.93\t0.78\t0.78\t5.00\t0.67
 """
+
+# Metrics (as they literally appear in WIDE_COMPARISON_TABLE) to plot as
+# subplots in the combined figure, in order.
+WIDE_COMBINED_METRICS: List[str] = [
+    "Path length (Cell)",
+    "Avg turning angle (Degree)",
+    "Composite fitness",
+]
+
+# English display labels for the (Vietnamese-keyed) metrics parsed from the tables.
+METRIC_LABEL_MAP: Dict[str, str] = {
+    "Tỷ lệ thành công": "Success Rate (%)",
+    "Độ dài đường đi": "Path Length",
+    "Góc quay trung bình": "Average Turning Angle (°)",
+    "Khoảng cách an toàn": "Minimum Clearance",
+    "Thời gian tính toán": "Computation Time (s)",
+    "Hàm đánh giá": "Fitness Value",
+}
 
 METRIC_FILENAME_MAP: Dict[str, str] = {
     "Tỷ lệ thành công": "success_rate",
@@ -68,6 +128,17 @@ METRIC_FILENAME_MAP: Dict[str, str] = {
     "Thời gian tính toán": "computation_time",
     "Hàm đánh giá": "evaluation_function",
 }
+
+# Metrics to include as subplots in the combined comparison figure, in order.
+COMBINED_METRICS: List[str] = [
+    "Độ dài đường đi",
+    "Góc quay trung bình",
+    "Hàm đánh giá",
+]
+
+
+def _metric_label(metric: str) -> str:
+    return METRIC_LABEL_MAP.get(metric, metric)
 
 
 def _save_fig(fig: plt.Figure, out_path: str) -> None:
@@ -83,7 +154,7 @@ def plot_stochastic_inertia_weight(
     noise_scale: float = 0.1,
     seed: int = 42,
     out_path: str = "data/results/improved/stochastic_inertia.png",
-    figsize: Tuple[float, float] = (9.0, 3.2),
+    figsize: Tuple[float, float] = (6.0, 2.0),
     dpi: int = 150,
     grid_style: str = "--",
 ) -> None:
@@ -95,12 +166,12 @@ def plot_stochastic_inertia_weight(
     )
 
     fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-    ax.plot(iterations, stochastic_weight, "b-", label="Giá trị trọng số quán tính")
-    ax.set_xlabel("Vòng lặp (t)", fontsize=20, color=TEXT_SLIDE)
-    ax.set_ylabel("Trọng số quán tính (w)", fontsize=20, color=TEXT_SLIDE)
-    ax.legend(fontsize=20, labelcolor=TEXT_SLIDE)
+    ax.plot(iterations, stochastic_weight, "b-", label="Inertia weight value")
+    ax.set_xlabel("Iteration (t)", fontsize=FS_AXIS_LABEL, color=BLACK)
+    ax.set_ylabel("Inertia weight (w)", fontsize=FS_AXIS_LABEL, color=BLACK)
+    ax.legend(fontsize=FS_LEGEND, labelcolor=BLACK)
     ax.grid(True, linestyle=grid_style)
-    ax.tick_params(axis="both", labelsize=16)
+    ax.tick_params(axis="both", labelsize=FS_TICK)
 
     fig.tight_layout()
     _save_fig(fig, out_path)
@@ -114,7 +185,7 @@ def plot_tvac(
     global_best: Tuple[float, float] = (50.0, 50.0),
     seed: int = 10,
     out_path: str = "data/results/improved/tvac.png",
-    figsize: Tuple[float, float] = (11.0, 3.0),
+    figsize: Tuple[float, float] = (6.0, 2.0),
     dpi: int = 150,
 ) -> None:
     rng = np.random.default_rng(seed)
@@ -135,8 +206,8 @@ def plot_tvac(
         color=CHART_GREEN,
         alpha=0.7,
     )
-    ax1.scatter(early_x, early_y, color=CHART_DARK_GREEN, s=100, label="Cá thể")
-    ax1.set_title("Giai đoạn đầu", fontsize=20, color=TEXT_SLIDE)
+    ax1.scatter(early_x, early_y, color=CHART_DARK_GREEN, s=60, label="Particle")
+    ax1.set_title("Early stage", fontsize=FS_TITLE, color=BLACK)
 
     ax2.quiver(
         late_x,
@@ -146,26 +217,26 @@ def plot_tvac(
         color=CHART_MAGENTA,
         alpha=0.7,
     )
-    ax2.scatter(late_x, late_y, color=CHART_PURPLE, s=30)
+    ax2.scatter(late_x, late_y, color=CHART_PURPLE, s=20)
     ax2.scatter(
         gbx,
         gby,
         color=CHART_GOLD,
         marker="*",
-        s=200,
+        s=140,
         edgecolors="black",
-        label="Tối ưu toàn cục (Gbest)",
+        label="Global best (Gbest)",
     )
-    ax2.set_title("Giai đoạn cuối", fontsize=20, color=TEXT_SLIDE)
+    ax2.set_title("Late stage", fontsize=FS_TITLE, color=BLACK)
 
     for _ax in (ax1, ax2):
         _ax.set_xlim(space_min_value, space_max_value)
         _ax.set_ylim(space_min_value, space_max_value)
-        _ax.set_xlabel("Không gian X₁", fontsize=18, color=TEXT_SLIDE)
-        _ax.set_ylabel("Không gian X₂", fontsize=18, color=TEXT_SLIDE)
+        _ax.set_xlabel("Space X₁", fontsize=FS_AXIS_LABEL, color=BLACK)
+        _ax.set_ylabel("Space X₂", fontsize=FS_AXIS_LABEL, color=BLACK)
         _ax.grid(True, linestyle=":")
-        _ax.legend(fontsize=14, loc="upper right")
-        _ax.tick_params(axis="both", labelsize=14)
+        _ax.legend(fontsize=FS_LEGEND, loc="upper right")
+        _ax.tick_params(axis="both", labelsize=FS_TICK)
 
     fig.tight_layout()
     _save_fig(fig, out_path)
@@ -176,7 +247,7 @@ def plot_sobl(
     n_particles: int = 20,
     seed: int = 42,
     out_path: str = "data/results/improved/sobl.png",
-    figsize: Tuple[float, float] = (12.0, 4.5),
+    figsize: Tuple[float, float] = (6.0, 3.0),
     dpi: int = 150,
 ) -> None:
     rng = np.random.default_rng(seed)
@@ -207,8 +278,8 @@ def plot_sobl(
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_aspect("equal")
-        ax.set_xlabel("Không gian X₁", fontsize=18, color=TEXT_SLIDE)
-        ax.set_ylabel("Không gian X₂", fontsize=18, color=TEXT_SLIDE)
+        ax.set_xlabel("Space X₁", fontsize=FS_AXIS_LABEL, color=BLACK)
+        ax.set_ylabel("Space X₂", fontsize=FS_AXIS_LABEL, color=BLACK)
         ax.grid(True, linestyle=":")
 
         ax.plot(
@@ -217,17 +288,17 @@ def plot_sobl(
             color=CHART_GREEN,
             lw=2.0,
             linestyle=(0, (6, 4)),
-            label="Quỹ đạo",
+            label="Trajectory",
             zorder=2,
         )
         ax.scatter(
             [focus[0]],
             [focus[1]],
             marker="D",
-            s=80,
+            s=50,
             color=DARK_GRAY,
             zorder=6,
-            label="Điểm đang xét",
+            label="Point under consideration",
         )
 
         if show_sobl:
@@ -256,29 +327,30 @@ def plot_sobl(
             ax.scatter(
                 opp[:, 0],
                 opp[:, 1],
-                s=40,
+                s=28,
                 color=CHART_ORANGE,
                 marker="^",
                 alpha=0.75,
                 zorder=4,
-                label="Điểm đối lập",
+                label="Opposite point",
             )
 
         ax.scatter(
             raw[:, 0],
             raw[:, 1],
-            s=55,
+            s=35,
             color=CHART_BLUE,
             alpha=0.85,
             zorder=5,
-            label="Cá thể gốc",
+            label="Original particle",
         )
         ax.set_title(
-            "Áp dụng SOBL" if show_sobl else "Không áp dụng SOBL",
-            fontsize=20,
-            color=TEXT_SLIDE,
+            "With SOBL" if show_sobl else "Without SOBL",
+            fontsize=FS_TITLE,
+            color=BLACK,
         )
-        # ax.legend(fontsize=14, loc="upper right")
+        ax.tick_params(axis="both", labelsize=FS_TICK)
+        # ax.legend(fontsize=FS_LEGEND, loc="upper right")
 
     # handles, labels = ax_with.get_legend_handles_labels()
     # fig.legend(
@@ -286,7 +358,7 @@ def plot_sobl(
     #     labels,
     #     loc="center",
     #     bbox_to_anchor=(0.48, 0.5),
-    #     fontsize=14,
+    #     fontsize=FS_LEGEND,
     #     framealpha=0.9,
     # )
 
@@ -298,7 +370,7 @@ def plot_sobl(
 def plot_bezier_corner_smoothing(
     blend_ratio: float = 0.3,
     out_path: str = "data/results/improved/bezier_corner_smoothing.png",
-    figsize: Tuple[float, float] = (11.0, 3.0),
+    figsize: Tuple[float, float] = (6.0, 2.0),
     dpi: int = 150,
     grid_style: str = "--",
 ) -> None:
@@ -327,29 +399,34 @@ def plot_bezier_corner_smoothing(
         [prev_point[0], corner_point[0], next_point[0]],
         [prev_point[1], corner_point[1], next_point[1]],
         "r--o",
-        label="Quỹ đạo gốc",
+        label="Original trajectory",
     )
     ax.plot(
         bezier_points[:, 0],
         bezier_points[:, 1],
         "b-",
         linewidth=2.5,
-        label="Đường cong Bezier nội suy",
+        label="Interpolated Bezier curve",
     )
     ax.scatter(
         [entry_point[0], exit_point[0]],
         [entry_point[1], exit_point[1]],
         color=CHART_MAGENTA,
-        s=80,
+        s=50,
         zorder=5,
     )
-    ax.text(entry_point[0] - 0.7, entry_point[1] + 0.2, "$P_{entry}$", fontsize=18)
-    ax.text(exit_point[0] + 0.2, exit_point[1] + 0.2, "$P_{exit}$", fontsize=18)
-    ax.text(corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$", fontsize=18)
+    ax.text(
+        entry_point[0] - 0.7, entry_point[1] + 0.2, "$P_{entry}$", fontsize=FS_ANNOT
+    )
+    ax.text(exit_point[0] + 0.2, exit_point[1] + 0.2, "$P_{exit}$", fontsize=FS_ANNOT)
+    ax.text(
+        corner_point[0] - 0.5, corner_point[1] + 0.3, "$P_{curr}$", fontsize=FS_ANNOT
+    )
 
-    ax.set_xlabel("Trục X", fontsize=18, color=TEXT_SLIDE)
-    ax.set_ylabel("Trục Y", fontsize=18, color=TEXT_SLIDE)
-    ax.legend(fontsize=14)
+    ax.set_xlabel("X axis", fontsize=FS_AXIS_LABEL, color=BLACK)
+    ax.set_ylabel("Y axis", fontsize=FS_AXIS_LABEL, color=BLACK)
+    ax.legend(fontsize=FS_LEGEND)
+    ax.tick_params(axis="both", labelsize=FS_TICK)
     ax.grid(True, linestyle=grid_style)
 
     fig.tight_layout()
@@ -357,9 +434,27 @@ def plot_bezier_corner_smoothing(
     print(f"[VISUALIZATION] Bezier saved to '{out_path}'")
 
 
+def _clean_value(raw_value: str) -> Optional[float]:
+    v = raw_value.strip()
+    if v in ("", "-", "–", "—", "N/A", "n/a"):
+        return None
+    v = v.replace("%", "").replace(",", "").strip()
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
+
 def _parse_comparison_table(
     raw: str,
 ) -> Tuple[List[str], Dict[str, List[Optional[float]]]]:
+    """Parse a single-map comparison table.
+
+    Expected shape (tab-separated), e.g.:
+        Thuật toán    RRT*    PRM    A*    HAPSO
+        Tỷ lệ thành công    70.0    10.0    100.0    100.0
+        ...
+    """
     lines = [ln.rstrip() for ln in raw.strip().splitlines() if ln.strip()]
 
     header_idx, algorithms = 0, []
@@ -376,23 +471,109 @@ def _parse_comparison_table(
         if len(parts) < 2:
             continue
         metric = parts[0].strip()
-        values = [None if v.strip() in ("", "-", "–") else float(v) for v in parts[1:]]
+        values = [_clean_value(v) for v in parts[1:]]
         if metric and len(values) == len(algorithms):
             data[metric] = values
 
     return algorithms, data
 
 
+def parse_wide_comparison_table(
+    raw: str,
+) -> Dict[str, Tuple[List[str], Dict[str, List[Optional[float]]]]]:
+    """Parse a "wide" comparison table pasted directly from Word/Excel, where
+    several maps are laid out side by side, each occupying a block of
+    columns (one column per algorithm).
+
+    Two paste styles are supported:
+
+    1) Merged cells preserved as empty tab-separated placeholders:
+        Map name\tKB02-MZ\t\t\t\tKB02-CL
+        Metric\tRRT*\tPRM\tA*\tHAPSO\tRRT*\tPRM\tA*\tHAPSO
+
+    2) Merged cells collapsed (common when pasting from Word into a plain
+       text editor — the blank placeholder cells are simply dropped):
+        Map name\tKB02-MZ\tKB02-CL
+        Metric\tRRT*\tPRM\tA*\tHAPSO\tRRT*\tPRM\tA*\tHAPSO
+
+    Both styles are handled by: reading the map names as the non-empty
+    tokens on the map-name row (in order), then dividing the algorithm
+    columns from the metric row evenly across that many maps (assumes every
+    map has the same number of algorithm columns, which holds for this
+    paper's tables).
+
+    Returns a dict keyed by map name, each value being (algorithms, data)
+    with the same shape as `_parse_comparison_table`, so it plugs directly
+    into `plot_algorithm_comparison` / `plot_algorithm_comparison_combined`.
+    """
+    lines = [ln.rstrip("\n") for ln in raw.strip("\n").splitlines() if ln.strip()]
+    if len(lines) < 3:
+        raise ValueError(
+            "Wide table needs at least a map-name row, a metric row, and one data row."
+        )
+
+    map_row = lines[0].split("\t")
+    metric_header_row = lines[1].split("\t")
+
+    # Map names: every non-empty token after the first (label) cell, in order.
+    map_names = [c.strip() for c in map_row[1:] if c.strip()]
+    if not map_names:
+        raise ValueError("Could not find any map names on the first row.")
+
+    # Algorithm columns: everything after the first (label) cell on the metric row.
+    algo_tokens = [c.strip() for c in metric_header_row[1:]]
+    # Trim trailing empty tokens (e.g. stray trailing tabs), but keep internal
+    # ones in case a table genuinely has an empty algorithm name (unlikely).
+    while algo_tokens and not algo_tokens[-1]:
+        algo_tokens.pop()
+
+    n_maps = len(map_names)
+    if n_maps == 0 or len(algo_tokens) % n_maps != 0:
+        raise ValueError(
+            f"Cannot evenly split {len(algo_tokens)} algorithm columns across "
+            f"{n_maps} maps — check that every map has the same number of "
+            f"algorithm columns."
+        )
+    block_size = len(algo_tokens) // n_maps
+
+    map_algorithms: Dict[str, List[str]] = {}
+    for i, m in enumerate(map_names):
+        map_algorithms[m] = algo_tokens[i * block_size : (i + 1) * block_size]
+
+    map_data: Dict[str, Dict[str, List[Optional[float]]]] = {m: {} for m in map_names}
+
+    for line in lines[2:]:
+        parts = [p.strip() for p in line.split("\t")]
+        metric = parts[0].strip() if parts else ""
+        if not metric:
+            continue
+        values_all = parts[1:]
+        # Pad in case a data row is short a trailing empty cell or two.
+        if len(values_all) < len(algo_tokens):
+            values_all = values_all + [""] * (len(algo_tokens) - len(values_all))
+        for i, m in enumerate(map_names):
+            block = values_all[i * block_size : (i + 1) * block_size]
+            map_data[m][metric] = [_clean_value(v) for v in block]
+
+    return {m: (map_algorithms[m], map_data[m]) for m in map_names}
+
+
 def plot_algorithm_comparison(
-    raw_table: str = COMPARISON_TABLE,
-    map_name: str = MAP_NAME,
+    raw_table: str,
+    map_name: str,
     out_base_dir: str = "data/results/charts",
-    figsize: Tuple[float, float] = (7.0, 5.0),
+    figsize: Tuple[float, float] = (5.5, 4.0),
     dpi: int = 150,
     grid_style: str = "--",
 ) -> None:
+    """Save one bar-chart image per metric for a single map.
+
+    Kept for cases where a standalone, per-metric figure is still needed.
+    For the standard paper figure comparing path length / turning angle /
+    fitness across maps, prefer `plot_algorithm_comparison_combined`.
+    """
     if not map_name:
-        print("[VISUALIZATION] MAP_NAME is not defined — skipping.")
+        print("[VISUALIZATION] map_name is not defined — skipping.")
         return
 
     algorithms, data = _parse_comparison_table(raw_table)
@@ -443,26 +624,26 @@ def plot_algorithm_comparison(
                 f"{val:.4g}",
                 ha="center",
                 va="bottom",
-                fontsize=16,
+                fontsize=FS_ANNOT,
             )
 
         ax2.plot(
             x,
             success_rates,
             marker="o",
-            linewidth=2.5,
+            linewidth=2.0,
             color="red",
-            label="Tỷ lệ thành công",
+            label="Success rate",
         )
 
         ax1.set_xticks(x)
-        ax1.set_xticklabels(algorithms, fontsize=20)
-        ax1.set_ylabel(metric, fontsize=20)
-        ax2.set_ylabel("Tỷ lệ thành công (%)", fontsize=20)
+        ax1.set_xticklabels(algorithms, fontsize=FS_TICK)
+        ax1.set_ylabel(_metric_label(metric), fontsize=FS_AXIS_LABEL)
+        ax2.set_ylabel("Success rate (%)", fontsize=FS_AXIS_LABEL)
         ax1.set_ylim(0, max_val * 1.18)
         ax2.set_ylim(0, 105)
-        ax1.tick_params(axis="y", labelsize=18)
-        ax2.tick_params(axis="y", labelsize=18)
+        ax1.tick_params(axis="y", labelsize=FS_TICK)
+        ax2.tick_params(axis="y", labelsize=FS_TICK)
         ax1.grid(True, axis="y", linestyle=grid_style, alpha=0.6)
         ax1.set_axisbelow(True)
         fig.tight_layout()
@@ -473,12 +654,162 @@ def plot_algorithm_comparison(
     print(f"[VISUALIZATION] Completed — {len(data)} charts saved to '{out_dir}'")
 
 
+def plot_algorithm_comparison_combined(
+    map_tables: Optional[Dict[str, str]] = None,
+    parsed_tables: Optional[
+        Dict[str, Tuple[List[str], Dict[str, List[Optional[float]]]]]
+    ] = None,
+    map_names: Optional[List[str]] = None,
+    metrics: List[str] = COMBINED_METRICS,
+    out_path: str = "data/results/charts/algorithm_comparison_combined.png",
+    figsize_per_subplot: Tuple[float, float] = (3.6, 3.0),
+    dpi: int = 150,
+    grid_style: str = "--",
+) -> None:
+    """Build ONE figure with one subplot per metric.
+
+    Each subplot is a grouped bar chart: groups = maps, bars within a group =
+    algorithms. This replaces the earlier "one bar chart per metric per map"
+    approach so the paper only needs a single combined figure, e.g.:
+
+        Figure X: Comparison of path length, average turning angle, and
+        composite fitness across algorithms on maps KB02-MZ and KB02-CL.
+
+    Provide EITHER:
+      - `map_tables`: Dict[map_name -> single-map raw table string] (old
+        per-map format, parsed with `_parse_comparison_table`), OR
+      - `parsed_tables`: Dict[map_name -> (algorithms, data)] already parsed
+        (e.g. via `parse_wide_comparison_table`, which is the easiest way to
+        feed in a table pasted straight from Word/Excel with several maps
+        side by side).
+    """
+    if parsed_tables is not None:
+        parsed_all = parsed_tables
+    elif map_tables is not None:
+        parsed_all = {}
+        for name, raw in map_tables.items():
+            algorithms, data = _parse_comparison_table(raw)
+            if algorithms and data:
+                parsed_all[name] = (algorithms, data)
+    else:
+        print("[VISUALIZATION] Provide either map_tables or parsed_tables — skipping.")
+        return
+
+    map_names = map_names or list(parsed_all.keys())
+    if not map_names:
+        print("[VISUALIZATION] No maps provided — skipping.")
+        return
+
+    parsed: Dict[str, Tuple[List[str], Dict[str, List[Optional[float]]]]] = {}
+    for name in map_names:
+        entry = parsed_all.get(name)
+        if not entry or not entry[0] or not entry[1]:
+            print(f"[VISUALIZATION] No usable data for map '{name}' — skipping it.")
+            continue
+        parsed[name] = entry
+
+    if not parsed:
+        print("[VISUALIZATION] Nothing to plot — no maps parsed successfully.")
+        return
+
+    valid_map_names = [n for n in map_names if n in parsed]
+    # Assume the algorithm set/order is consistent across maps (typical for
+    # this paper: RRT*, PRM, A*, HAPSO). Use the first map's order.
+    algorithms = parsed[valid_map_names[0]][0]
+    n_algo = len(algorithms)
+    n_maps = len(valid_map_names)
+
+    n_metrics = len(metrics)
+    fig, axes = plt.subplots(
+        1,
+        n_metrics,
+        figsize=(figsize_per_subplot[0] * n_metrics, figsize_per_subplot[1]),
+        dpi=dpi,
+    )
+    if n_metrics == 1:
+        axes = [axes]
+
+    group_gap = 1.0
+    x_group_centers = np.arange(n_maps) * (n_algo + group_gap)
+    bar_width = 0.8
+    colors = CHART_COLORS[:n_algo]
+    hatches = CHART_HATCHES[:n_algo]
+
+    for ax, metric in zip(axes, metrics):
+        for algo_idx, algo in enumerate(algorithms):
+            xs, ys = [], []
+            for map_idx, map_name in enumerate(valid_map_names):
+                _, data = parsed[map_name]
+                values = data.get(metric)
+                val = values[algo_idx] if values else None
+                if val is None:
+                    continue
+                xs.append(x_group_centers[map_idx] + algo_idx * bar_width)
+                ys.append(val)
+            bars = ax.bar(
+                xs,
+                ys,
+                width=bar_width * 0.95,
+                color=colors[algo_idx],
+                edgecolor="black",
+                linewidth=0.5,
+                hatch=hatches[algo_idx],
+                label=algo,
+            )
+            for bar, val in zip(bars, ys):
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height(),
+                    f"{val:.3g}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=FS_ANNOT,
+                )
+
+        tick_positions = x_group_centers + (n_algo - 1) * bar_width / 2
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(valid_map_names, fontsize=FS_TICK)
+        ax.set_ylabel(_metric_label(metric), fontsize=FS_AXIS_LABEL, color=BLACK)
+        ax.grid(True, axis="y", linestyle=grid_style, alpha=0.6)
+        ax.set_axisbelow(True)
+        ax.tick_params(axis="y", labelsize=FS_TICK)
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.08),
+        ncol=n_algo,
+        fontsize=FS_LEGEND,
+        frameon=False,
+    )
+
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    _save_fig(fig, out_path)
+    print(f"[VISUALIZATION] Combined comparison figure saved to '{out_path}'")
+
+
 if __name__ == "__main__":
 
     # plot_stochastic_inertia_weight()
     # plot_tvac()
-    # plot_sobl()
-    plot_bezier_corner_smoothing()
-    # plot_algorithm_comparison()
+    plot_sobl()
+    # plot_bezier_corner_smoothing()
+
+    # Option A: several single-map tables (old format, Vietnamese metric keys).
+    # plot_algorithm_comparison_combined(
+    #     map_tables=COMPARISON_TABLES,
+    #     map_names=COMPARISON_MAP_GROUP,
+    # )
+
+    # Option B: one "wide" table pasted straight from Word/Excel, with maps
+    # laid out side by side (this matches the format you pasted).
+    # parsed_wide = parse_wide_comparison_table(WIDE_COMPARISON_TABLE)
+    # plot_algorithm_comparison_combined(
+    #     parsed_tables=parsed_wide,
+    #     metrics=WIDE_COMBINED_METRICS,
+    #     out_path="data/results/charts/algorithm_comparison_combined_wide.png",
+    # )
 
     pass

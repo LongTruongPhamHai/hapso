@@ -744,7 +744,7 @@ class App:
                 self._stop_simulation()
 
             case "A-Star":
-                planner = Astar(self.grid_map, min_clearance=1.0)
+                planner = Astar(self.grid_map, min_clearance=0.0)
 
                 algo_t0 = time.perf_counter()
                 self.current_path = planner.plan()
@@ -778,7 +778,7 @@ class App:
                         planner = PRM(self.grid_map)
 
                     elif name == "A-Star":
-                        planner = Astar(self.grid_map, min_clearance=1.0)
+                        planner = Astar(self.grid_map, min_clearance=0.0)
 
                     elif name == "HAPSO":
                         planner = HAPSO(self.grid_map)
