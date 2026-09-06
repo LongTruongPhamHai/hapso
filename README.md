@@ -158,35 +158,69 @@ Nhìn chung, so với A\*, RRT\* và PRM, HAPSO nhất quán tạo ra quỹ đ�
 
 ### KB01
 
-![KB01-ES HAPSO](<data/results/images/KB01-ES HAPSO 2026-08-07 070856.png>)
-
-![KB01-HD HAPSO](<data/results/images/KB01-HD HAPSO 2026-08-07 072035.png>)
-
-![KB01-MD HAPSO](<data/results/images/KB01-MD HAPSO 2026-08-07 071452.png>)
+<table>
+  <tr>
+    <td><img src="data/results/images/KB01-ES HAPSO 2026-08-07 070856.png" width="100%"></td>
+    <td><img src="data/results/images/KB01-MD HAPSO 2026-08-07 071452.png" width="100%"></td>
+    <td><img src="data/results/images/KB01-HD HAPSO 2026-08-07 072035.png" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center">KB01-ES</td>
+    <td align="center">KB01-MD</td>
+    <td align="center">KB01-HD</td>
+  </tr>
+</table>
 
 ### KB02
 
-![KB02-CL HAPSO](<data/results/images/KB02-CL HAPSO 2026-08-07 074857.png>)
-
-![KB02-MZ HAPSO](<data/results/images/KB02-MZ HAPSO 2026-08-07 072836.png>)
+<table>
+  <tr>
+    <td><img src="data/results/images/KB02-MZ HAPSO 2026-08-07 072836.png" width="100%"></td>
+    <td><img src="data/results/images/KB02-CL HAPSO 2026-08-07 074857.png" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center">KB02-MZ</td>
+    <td align="center">KB02-CL</td>
+  </tr>
+</table>
 
 ### KB03
 
-![KB03-ID HAPSO](<data/results/images/KB03-ID HAPSO 2026-08-07 091843.png>)
-
-![KB03-OD HAPSO](<data/results/images/KB03-OD HAPSO 2026-08-07 092145.png>)
+<table>
+  <tr>
+    <td><img src="data/results/images/KB03-ID HAPSO 2026-08-07 091843.png" width="100%"></td>
+    <td><img src="data/results/images/KB03-OD HAPSO 2026-08-07 092145.png" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center">KB03-ID</td>
+    <td align="center">KB03-OD</td>
+  </tr>
+</table>
 
 ### OT
 
-![OT01 HAPSO](<data/results/images/OT01 HAPSO 2026-07-04 095938.png>)
-
-![OT02 HAPSO](<data/results/images/OT02 HAPSO 2026-07-04 102505.png>)
-
-![OT03 HAPSO](<data/results/images/OT03 HAPSO 2026-07-04 110428.png>)
-
-![OT04 HAPSO](<data/results/images/OT04 HAPSO 2026-07-05 211246.png>)
-
-![OT05 HAPSO](<data/results/images/OT05 HAPSO 2026-07-05 213538.png>)
+<table>
+  <tr>
+    <td><img src="data/results/images/OT01 HAPSO 2026-07-04 095938.png" width="100%"></td>
+    <td><img src="data/results/images/OT02 HAPSO 2026-07-04 102505.png" width="100%"></td>
+    <td><img src="data/results/images/OT03 HAPSO 2026-07-04 110428.png" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center">OT01</td>
+    <td align="center">OT02</td>
+    <td align="center">OT03</td>
+  </tr>
+  <tr>
+    <td><img src="data/results/images/OT04 HAPSO 2026-07-05 211246.png" width="100%"></td>
+    <td><img src="data/results/images/OT05 HAPSO 2026-07-05 213538.png" width="100%"></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td align="center">OT04</td>
+    <td align="center">OT05</td>
+    <td></td>
+  </tr>
+</table>
 
 ## ⚠️ Hạn Chế & Hướng Phát Triển
 
