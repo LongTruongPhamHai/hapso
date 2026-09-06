@@ -154,6 +154,40 @@ Tọa độ vật cản được lưu bằng bảng băm (hash set) để kiểm
 
 Nhìn chung, so với A\*, RRT\* và PRM, HAPSO nhất quán tạo ra quỹ đạo **ngắn hơn hoặc tương đương, mượt hơn đáng kể (góc quay trung bình giảm rõ rệt) và an toàn hơn** (đảm bảo khoảng cách tối thiểu tới vật cản), đánh đổi bằng thời gian tính toán tăng — phù hợp với bài toán hoạch định đường bay ngoại tuyến.
 
+## 🖼️ Hình Ảnh Kết Quả HAPSO
+
+### KB01
+
+![KB01-ES HAPSO](<data/results/images/KB01-ES HAPSO 2026-08-07 070856.png>)
+
+![KB01-HD HAPSO](<data/results/images/KB01-HD HAPSO 2026-08-07 072035.png>)
+
+![KB01-MD HAPSO](<data/results/images/KB01-MD HAPSO 2026-08-07 071452.png>)
+
+### KB02
+
+![KB02-CL HAPSO](<data/results/images/KB02-CL HAPSO 2026-08-07 074857.png>)
+
+![KB02-MZ HAPSO](<data/results/images/KB02-MZ HAPSO 2026-08-07 072836.png>)
+
+### KB03
+
+![KB03-ID HAPSO](<data/results/images/KB03-ID HAPSO 2026-08-07 091843.png>)
+
+![KB03-OD HAPSO](<data/results/images/KB03-OD HAPSO 2026-08-07 092145.png>)
+
+### OT
+
+![OT01 HAPSO](<data/results/images/OT01 HAPSO 2026-07-04 095938.png>)
+
+![OT02 HAPSO](<data/results/images/OT02 HAPSO 2026-07-04 102505.png>)
+
+![OT03 HAPSO](<data/results/images/OT03 HAPSO 2026-07-04 110428.png>)
+
+![OT04 HAPSO](<data/results/images/OT04 HAPSO 2026-07-05 211246.png>)
+
+![OT05 HAPSO](<data/results/images/OT05 HAPSO 2026-07-05 213538.png>)
+
 ## ⚠️ Hạn Chế & Hướng Phát Triển
 
 **Hạn chế hiện tại:**
